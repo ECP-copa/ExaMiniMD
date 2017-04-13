@@ -2,10 +2,10 @@
 
 ExaMiniMD is a proxy applications and research vehicle for 
 particle codes, in particular Molecular Dynamics (MD). Compared to 
-previous MD proxy apps (MiniMD, COMD), its design is signicantly more 
+previous MD proxy apps (MiniMD, COMD), its design is significantly more 
 modular in order to allow independent investigation of different aspects.
 To achieve that the main components such as force calculation, 
-communication, neighbor list concstruction and binning are derived 
+communication, neighbor list construction and binning are derived 
 classes whos main functionality is accessed via virtual functions. 
 This allows developer to write a new derived class and drop it into the code
 without touching much of the rest of the application.
@@ -27,14 +27,14 @@ git clone https://github.com/kokkos/kokkos
 # Current Capabilities
 
 ### Force Fields:
- * Lennard Jones Cell List
- * Lennard Jones Neighbor List
+ * Lennard-Jones Cell List
+ * Lennard-Jones Neighbor List
 
 ### Neighbor List:
  * CSR NeighborList creation
 
 ### Integrator:
- * NVE (constant energy velocity verlet)
+ * NVE (constant energy velocity-Verlet)
 
 ### Communication
  * Serial
