@@ -64,7 +64,7 @@ IBM Power8 CPU + NVIDIA P100 / CUDA / MPI (OpenMPI)
   make -j KOKKOS_ARCH=Power8,Pascal60 KOKKOS_DEVICES=Cuda CXX=mpicxx
 ```
 
-#Running
+# Running
 
 Currently ExaMiniMD can only get input from LAMMPS input files with a 
 restricted set of LAMMPS commands. An example input file is provided in the
