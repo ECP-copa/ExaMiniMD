@@ -14,8 +14,6 @@
 #define COMM_SERIAL_H
 #include<comm.h>
 
-#include "mpi.h"
-
 class CommSerial: public Comm {
 
   // Variables Comm doesn't own but requires for computations
