@@ -18,6 +18,12 @@ comm_serial.h and comm_mpi.h.
 In the future the plan is to provide focused miniApps with a subset of the 
 available functionality for specific research purposes. 
 
+This application is using Kokkos as a programming model which you can clone
+from github via:
+```
+git clone https://github.com/kokkos/kokkos
+```
+
 # Current Capabilities
 
 ### Force Fields:
@@ -45,8 +51,8 @@ available functionality for specific research purposes.
 ExaMiniMD utilizes the standard GNU Make build system of Kokkos. For
 detailed information about the Kokkos build process please refer to 
 documentation of Kokkos at github.com/kokkos/kokkos
-Here are some quickstart information which assume that kokkos was 
-cloned into ${HOME}/kokkos:
+Here are some quickstart information which assume that Kokkos was 
+cloned into ${HOME}/kokkos and you are in the "src" directory:
 
 Intel Haswell CPU / Pthread / No MPI:
 ```
