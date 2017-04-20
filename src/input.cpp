@@ -84,7 +84,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 #else
   comm_type = COMM_SERIAL;
 #endif
-  neighbor_type = NEIGH_CSR_FULL;
+  neighbor_type = NEIGH_CSR;
   force_iteration_type = FORCE_ITER_NEIGH_FULL;
   binning_type = BINNING_KKSORT;
   comm_exchange_rate = 20;
@@ -122,6 +122,11 @@ void Input::read_command_line_args(int argc, char* argv[]) {
     // Communication Type
     if( (strcmp(argv[i], "--comm-type") == 0) ) {
      #include<modules_comm.h>
+    }
+
+    // Neihhbor Type
+    if( (strcmp(argv[i], "--neigh-type") == 0) ) {
+     #include<modules_neighbor.h>
     }
 
   }

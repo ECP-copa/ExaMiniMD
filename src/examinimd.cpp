@@ -47,10 +47,12 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   }
 
   // Create Neighbor Instance
-  if(input->neighbor_type == NEIGH_CSR_FULL) {
-    neighbor = new NeighborCSR<Kokkos::DefaultExecutionSpace::memory_space>();
-    neighbor->init(input->force_cutoff + input->neighbor_skin);
-  }
+  if (false) {}
+#define MODULES_INSTANTIATION
+#include<modules_neighbor.h>
+#undef MODULES_INSTANTIATION
+  else if(system->do_print)
+    printf("Error: Invalid NeighborType\n");
 
   // Create Communication Submodule
   if (false) {}
@@ -59,6 +61,11 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 #undef MODULES_INSTANTIATION
   else if(system->do_print)
     printf("Error: Invalid CommType\n");
+
+  // system->print_particles();
+  if(system->do_print) {
+    printf("Using: %s %s\n",neighbor->name(),comm->name());
+  }
 
   // Ok lets go ahead and create the particles if that didn't happen yet
   if(system->N == 0)
@@ -83,10 +90,6 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   // Compute initial forces
   force->compute(system,binning,neighbor);
 
- // system->print_particles();
- if(system->do_print) {
-   printf("Using Comm: %s\n",comm->name());
- }
 }
 
 void ExaMiniMD::run(int nsteps) {

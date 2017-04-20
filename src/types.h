@@ -18,7 +18,7 @@ enum {FORCE_LJ_CELL,FORCE_LJ_NEIGH};
 // Force Iteration Type
 enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL};
 // Neighbor Type
-enum {NEIGH_NONE, NEIGH_CSR_FULL};
+enum {NEIGH_NONE, NEIGH_CSR, NEIGH_CSR_MAPCONSTR};
 // Input File Type
 enum {INPUT_LAMMPS};
 
