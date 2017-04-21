@@ -100,7 +100,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("Options:\n");
         printf("  -il [file] / --input-lammps [FILE]: Provide LAMMPS input file\n");
         printf("  --force-iteration [TYPE]:   Specify which iteration style to use\n");
-        printf("                              for force calculations (CELL_FULL, NEIGH_FULL)\n");
+        printf("                              for force calculations (CELL_FULL, NEIGH_FULL, NEIGH_HALF)\n");
         printf("  --comm-type [TYPE]:         Specify Communication Routines implementation \n");
         printf("                              (MPI, SERIAL)\n");
       }
