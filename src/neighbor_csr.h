@@ -78,7 +78,7 @@ protected:
   Kokkos::View<T_INT*, MemorySpace, Kokkos::MemoryTraits<Kokkos::Atomic> > num_neighs_atomic;
   Kokkos::View<T_INT*, MemorySpace> neigh_offsets;
   Kokkos::View<T_INT*, MemorySpace> neighs;
-  bool skip_num_neigh_count;
+  bool skip_num_neigh_count, half_neigh;
 
   typename Binning::t_binoffsets bin_offsets;
   typename Binning::t_bincount bin_count;
@@ -88,12 +88,16 @@ protected:
 
 public:
   struct TagCreateOffsets {};
-  struct TagCountNeighs {};
-  struct TagFillNeighList {};
+  struct TagCountNeighsFull {};
+  struct TagFillNeighListFull {};
+  struct TagCountNeighsHalf {};
+  struct TagFillNeighListHalf {};
 
   typedef Kokkos::RangePolicy<TagCreateOffsets, Kokkos::IndexType<T_INT> > t_policy_co;
-  typedef Kokkos::TeamPolicy<TagCountNeighs, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_cn;
-  typedef Kokkos::TeamPolicy<TagFillNeighList, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_fnl;
+  typedef Kokkos::TeamPolicy<TagCountNeighsFull, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_cnf;
+  typedef Kokkos::TeamPolicy<TagFillNeighListFull, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_fnlf;
+  typedef Kokkos::TeamPolicy<TagCountNeighsHalf, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_cnh;
+  typedef Kokkos::TeamPolicy<TagFillNeighListHalf, Kokkos::IndexType<T_INT> , Kokkos::Schedule<Kokkos::Dynamic> > t_policy_fnlh;
 
   typedef NeighListCSR<MemorySpace> t_neigh_list;
 
@@ -108,7 +112,7 @@ public:
   void init(T_X_FLOAT neigh_cut_) { neigh_cut = neigh_cut_; };
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (const TagCountNeighs&, const typename t_policy_cn::member_type& team) const {
+  void operator() (const TagCountNeighsFull&, const typename t_policy_cnf::member_type& team) const {
     const T_INT bx = team.league_rank()/(nbiny*nbinz) + nhalo;
     const T_INT by = (team.league_rank()/(nbinz)) % nbiny + nhalo;
     const T_INT bz = team.league_rank() % nbinz + nhalo;
@@ -122,12 +126,14 @@ public:
       const T_F_FLOAT z_i = x(i,2);
       const int type_i = type(i);
 
+      int neigh_count = 0;
       for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
       for(int by_j = by-1; by_j<by+2; by_j++)
       for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
 
         const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj) {
+        int neigh_count_temp;
+        Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj, int& count) {
           T_INT j = permute_vector(j_offset + bj);
 
           const T_F_FLOAT dx = x_i - x(j,0);
@@ -137,15 +143,19 @@ public:
           const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
           if((rsq <= neigh_cut*neigh_cut) && (i!=j)) {
-            num_neighs_atomic(i)++;
+            count++;
           }
-        });
+        },neigh_count_temp);
+        neigh_count+=neigh_count_temp;
       }
+      Kokkos::single(Kokkos::PerThread(team), [&] () {
+        num_neighs(i) = neigh_count;
+      });
     });
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (const TagFillNeighList&, const typename t_policy_fnl::member_type& team) const {
+  void operator() (const TagFillNeighListFull&, const typename t_policy_fnlf::member_type& team) const {
     const T_INT bx = team.league_rank()/(nbiny*nbinz) + nhalo;
     const T_INT by = (team.league_rank()/(nbinz)) % nbiny + nhalo;
     const T_INT bz = team.league_rank() % nbinz + nhalo;
@@ -159,11 +169,13 @@ public:
       const T_F_FLOAT z_i = x(i,2);
       const int type_i = type(i);
 
+      int neigh_count = 0;
       for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
       for(int by_j = by-1; by_j<by+2; by_j++)
       for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
 
         const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
+
         Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj) {
           T_INT j = permute_vector(j_offset + bj);
           const T_F_FLOAT dx = x_i - x(j,0);
@@ -174,7 +186,6 @@ public:
           const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
           if((rsq <= neigh_cut*neigh_cut) && (i!=j)) {
-
             T_INT offset = Kokkos::atomic_fetch_add(&num_neighs(i),1) + neigh_offsets(i);
             neighs(offset) = j;
           }
@@ -184,19 +195,126 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
+   void operator() (const TagCountNeighsHalf&, const typename t_policy_cnh::member_type& team) const {
+     const T_INT bx = team.league_rank()/(nbiny*nbinz) + nhalo;
+     const T_INT by = (team.league_rank()/(nbinz)) % nbiny + nhalo;
+     const T_INT bz = team.league_rank() % nbinz + nhalo;
+
+     const T_INT i_offset = bin_offsets(bx,by,bz);
+     Kokkos::parallel_for(Kokkos::TeamThreadRange(team,0,bin_count(bx,by,bz)), [&] (const int bi) {
+       const T_INT i = permute_vector(i_offset + bi);
+       if(i>N_local) return;
+       const T_F_FLOAT x_i = x(i,0);
+       const T_F_FLOAT y_i = x(i,1);
+       const T_F_FLOAT z_i = x(i,2);
+       const int type_i = type(i);
+
+       int neigh_count = 0;
+       for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
+       for(int by_j = by-1; by_j<by+2; by_j++)
+       for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
+
+       /*  if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) &&    
+             (bx_j>=nhalo) && (bx_j<nbinx+nhalo-1) &&    
+             (by_j>=nhalo) && (by_j<nbiny+nhalo-1) &&
+             (bz_j>=nhalo) && (bz_j<nbinz+nhalo-1)    
+           ) continue;
+*/
+         const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
+         int neigh_count_temp;
+           Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj, int& count) {
+             T_INT j = permute_vector(j_offset + bj);
+             const T_F_FLOAT x_j = x(j,0);
+             const T_F_FLOAT y_j = x(j,1);
+             const T_F_FLOAT z_j = x(j,2);
+             if( (j<N_local) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
+               return;
+             const T_F_FLOAT dx = x_i - x_j;
+             const T_F_FLOAT dy = y_i - y_j;
+             const T_F_FLOAT dz = z_i - z_j;
+
+             const int type_j = type(j);
+             const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+             if((rsq <= neigh_cut*neigh_cut)) {
+               count++;
+             }
+           },neigh_count_temp);
+         neigh_count+=neigh_count_temp;
+       }
+       Kokkos::single(Kokkos::PerThread(team), [&] () {
+         num_neighs(i) = neigh_count;
+       });
+     });
+   }
+
+   KOKKOS_INLINE_FUNCTION
+   void operator() (const TagFillNeighListHalf&, const typename t_policy_fnlh::member_type& team) const {
+     const T_INT bx = team.league_rank()/(nbiny*nbinz) + nhalo;
+     const T_INT by = (team.league_rank()/(nbinz)) % nbiny + nhalo;
+     const T_INT bz = team.league_rank() % nbinz + nhalo;
+
+     const T_INT i_offset = bin_offsets(bx,by,bz);
+     Kokkos::parallel_for(Kokkos::TeamThreadRange(team,0,bin_count(bx,by,bz)), [&] (const int bi) {
+       const T_INT i = permute_vector(i_offset + bi);
+       if(i>N_local) return;
+       const T_F_FLOAT x_i = x(i,0);
+       const T_F_FLOAT y_i = x(i,1);
+       const T_F_FLOAT z_i = x(i,2);
+       const int type_i = type(i);
+
+       int neigh_count = 0;
+       for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
+       for(int by_j = by-1; by_j<by+2; by_j++)
+       for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
+/*
+         if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) && 
+             (bx_j>nhalo) && (bx_j<nbinx+nhalo-2) && 
+             (by_j>nhalo) && (by_j<nbiny+nhalo-2) &&
+             (bz_j>nhalo) && (bz_j<nbinz+nhalo-2) 
+           ) continue;*/
+         const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
+
+           Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj) {
+             T_INT j = permute_vector(j_offset + bj);
+             const T_F_FLOAT x_j = x(j,0);
+             const T_F_FLOAT y_j = x(j,1);
+             const T_F_FLOAT z_j = x(j,2);
+             if( (j<N_local) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
+               return;
+             const T_F_FLOAT dx = x_i - x_j;
+             const T_F_FLOAT dy = y_i - y_j;
+             const T_F_FLOAT dz = z_i - z_j;
+
+             const int type_j = type(j);
+             const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+             if((rsq <= neigh_cut*neigh_cut)) {
+               T_INT offset = Kokkos::atomic_fetch_add(&num_neighs(i),1) + neigh_offsets(i);
+               neighs(offset) = j;
+             }
+           });
+       }
+     });
+   }
+  KOKKOS_INLINE_FUNCTION
   void operator() (const TagCreateOffsets&, const T_INT& i, T_INT& offset, const bool final) const {
     const T_INT count_i = num_neighs(i);
-    if(final)
+    if(final) {
       neigh_offsets(i) = offset;
+      if(i==N_local-1)
+        neigh_offsets(i+1) = offset+count_i;
+    }
     offset += count_i;
   }
 
-  void create_neigh_list(System* system, Binning* binning = NULL) {
+  void create_neigh_list(System* system, Binning* binning, bool half_neigh_, bool) {
     // Get some data handles
     N_local = system->N_local;
     x = system->x;
     type = system->type;
     id = system->id;
+    half_neigh = half_neigh_;
 
     T_INT total_num_neighs;
 
@@ -222,11 +340,14 @@ public:
     bin_count = binning->bincount;
     permute_vector = binning->permute_vector;
 
-    Kokkos::parallel_for("NeighborCSR::count_neighbors", t_policy_cn(nbins,Kokkos::AUTO,8),*this);
+    if(half_neigh)
+      Kokkos::parallel_for("NeighborCSR::count_neighbors_half", t_policy_cnh(nbins,Kokkos::AUTO,8),*this);
+    else
+      Kokkos::parallel_for("NeighborCSR::count_neighbors_full", t_policy_cnf(nbins,Kokkos::AUTO,8),*this);
     Kokkos::fence();
 
     // Create the Offset list for neighbors of atoms
-    Kokkos::parallel_scan("NeighborCSR::create_offsets", t_policy_co(0, N_local+1), *this);
+    Kokkos::parallel_scan("NeighborCSR::create_offsets", t_policy_co(0, N_local), *this);
     Kokkos::fence();
 
     // Get the total neighbor count
@@ -240,9 +361,12 @@ public:
     // Copy entries from the PairList to the actual NeighborList
     Kokkos::deep_copy(num_neighs,0);
 
-    Kokkos::parallel_for("NeighborCSR::fill_neigh_list",t_policy_fnl(nbins,Kokkos::AUTO,8),*this);
-    Kokkos::fence();
+    if(half_neigh)
+      Kokkos::parallel_for("NeighborCSR::fill_neigh_list_half",t_policy_fnlh(nbins,Kokkos::AUTO,8),*this);
+    else
+      Kokkos::parallel_for("NeighborCSR::fill_neigh_list_full",t_policy_fnlf(nbins,Kokkos::AUTO,8),*this);
 
+    Kokkos::fence();
 
     // Create actual CSR NeighList
     neigh_list = t_neigh_list(

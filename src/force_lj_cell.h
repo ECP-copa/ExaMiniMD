@@ -3,8 +3,8 @@
         force_iteration_type = FORCE_ITER_CELL_FULL;
 #endif
 #ifdef MODULES_INSTANTIATION
-    else if (input->force_type == FORCE_LJ_CELL) {
-      force = new ForceLJCell(input->input_data.words[input->force_line],system);
+    else if ((input->force_type == FORCE_LJ) && (input->force_iteration_type == FORCE_ITER_CELL_FULL)){
+      force = new ForceLJCell(input->input_data.words[input->force_line],system,false);
     }
 #endif
 
@@ -34,7 +34,7 @@ private:
 public:
   typedef Kokkos::TeamPolicy<Kokkos::IndexType<T_INT> > t_policy;
 
-  ForceLJCell (char** args, System* system);
+  ForceLJCell (char** args, System* system, bool half_neigh);
 
   void init_coeff(int nargs, char** args);
 
@@ -55,12 +55,16 @@ public:
       const T_F_FLOAT z_i = x(i,2);
       const int type_i = type(i);
 
+      t_scalar3<T_F_FLOAT> f_i;
       for(int bx_j = bx>0?bx-1:bx; bx_j < (bx+1<nbinx?bx+2:bx+1); bx_j++)
       for(int by_j = by>0?by-1:by; by_j < (by+1<nbiny?by+2:by+1); by_j++)
       for(int bz_j = bz>0?bz-1:bz; bz_j < (bz+1<nbinz?bz+2:bz+1); bz_j++) {
 
         const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj) {
+
+        t_scalar3<T_F_FLOAT> f_i_tmp;
+        Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&]
+          (const T_INT bj, t_scalar3<T_F_FLOAT>& lf_i) {
           T_INT j = permute_vector(j_offset + bj);
           const T_F_FLOAT dx = x_i - x(j,0);
           const T_F_FLOAT dy = y_i - x(j,1);
@@ -73,12 +77,16 @@ public:
             T_F_FLOAT r2inv = 1.0/rsq;
             T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
             T_F_FLOAT fpair = (r6inv * (lj1(type_i,type_j)*r6inv - lj2(type_i,type_j))) * r2inv;
-            f(i,0) += dx*fpair;
-            f(i,1) += dy*fpair;
-            f(i,2) += dz*fpair;
+            lf_i.x += dx*fpair;
+            lf_i.y += dy*fpair;
+            lf_i.z += dz*fpair;
           }
-        });
+        },f_i_tmp);
+        f_i += f_i_tmp;
       }
+      f(i,0) += f_i.x;
+      f(i,1) += f_i.y;
+      f(i,2) += f_i.z;
     });
   } 
 };

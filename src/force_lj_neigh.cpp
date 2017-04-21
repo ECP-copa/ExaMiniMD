@@ -1,6 +1,6 @@
 #include<force_lj_neigh.h>
 
-ForceLJNeigh::ForceLJNeigh(char** args, System* system):Force(args,system) {
+ForceLJNeigh::ForceLJNeigh(char** args, System* system, bool half_neigh_):Force(args,system,half_neigh_) {
   lj1 = t_fparams("ForceLJNeigh::lj1",system->ntypes,system->ntypes);
   lj2 = t_fparams("ForceLJNeigh::lj2",system->ntypes,system->ntypes);
   cutsq = t_fparams("ForceLJNeigh::cutsq",system->ntypes,system->ntypes);
@@ -45,12 +45,16 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
     neigh_list = neighbor->get_neigh_list();
   }
 
+  N_local = system->N_local;
   x = system->x;
   f = system->f;
+  f_a = system->f;
   type = system->type;
   id = system->id;
-
-  Kokkos::parallel_for("ForceLJNeigh::computer", t_policy(0, system->N_local), *this);
+  if(half_neigh)
+    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
+  else
+    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_full_neigh(0, system->N_local), *this);
   Kokkos::fence();
 
   // Reset internal data handles so we don't keep a reference count

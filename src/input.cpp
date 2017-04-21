@@ -253,10 +253,7 @@ void Input::check_lammps_command(int line) {
   if(strcmp(input_data.words[line][0],"pair_style")==0) {
     if(strcmp(input_data.words[line][1],"lj/cut")==0) {
       known = true;
-      if(force_iteration_type == FORCE_ITER_NEIGH_FULL)
-        force_type = FORCE_LJ_NEIGH;
-      if(force_iteration_type == FORCE_ITER_CELL_FULL)
-        force_type = FORCE_LJ_CELL;      
+      force_type = FORCE_LJ;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
     } else {

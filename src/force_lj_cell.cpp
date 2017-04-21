@@ -1,6 +1,6 @@
 #include<force_lj_cell.h>
 
-ForceLJCell::ForceLJCell(char** args, System* system):Force(args,system) {
+ForceLJCell::ForceLJCell(char** args, System* system, bool half_neigh_):Force(args,system,half_neigh) {
   lj1 = t_fparams("ForceLJCell::lj1",system->ntypes,system->ntypes);
   lj2 = t_fparams("ForceLJCell::lj2",system->ntypes,system->ntypes);
   cutsq = t_fparams("ForceLJCell::cutsq",system->ntypes,system->ntypes);
@@ -27,6 +27,7 @@ void ForceLJCell::compute(System* system, Binning* binning, Neighbor*) {
   f = system->f;
   id = system->id;
   type = system->type;
+  N_local = system->N_local;
 
 
   static int step_i = 0;

@@ -1,5 +1,6 @@
 #ifdef EXAMINIMD_ENABLE_MPI
 #include<comm_mpi.h>
+
 CommMPI::CommMPI(System* s, T_X_FLOAT comm_depth):Comm(s,comm_depth) {
   pack_count = Kokkos::View<int>("CommMPI::pack_count");
   pack_buffer = Kokkos::View<Particle*>("CommMPI::pack_buffer",0);
@@ -327,5 +328,4 @@ void CommMPI::update_halo() {
 const char* CommMPI::name() { return "CommMPI"; }
 
 int CommMPI::process_rank() { return proc_rank; }
-
 #endif

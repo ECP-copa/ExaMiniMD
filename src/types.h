@@ -14,9 +14,9 @@ enum {BINNING_KKSORT};
 // Comm Type
 enum {COMM_SERIAL,COMM_MPI};
 // Force Type
-enum {FORCE_LJ_CELL,FORCE_LJ_NEIGH};
+enum {FORCE_LJ};
 // Force Iteration Type
-enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL};
+enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL, FORCE_ITER_NEIGH_HALF};
 // Neighbor Type
 enum {NEIGH_NONE, NEIGH_CSR, NEIGH_CSR_MAPCONSTR};
 // Input File Type
@@ -46,6 +46,8 @@ typedef Kokkos::View<T_X_FLOAT*[3]>       t_x;          // Positions
 typedef Kokkos::View<const T_X_FLOAT*[3]> t_x_const;    // Positions
 typedef Kokkos::View<T_V_FLOAT*[3]>       t_v;          // Velocities
 typedef Kokkos::View<T_F_FLOAT*[3]>       t_f;          // Force
+typedef Kokkos::View<T_F_FLOAT*[3],
+    Kokkos::MemoryTraits<Kokkos::Atomic>> t_f_atomic;   // Force
 typedef Kokkos::View<const T_F_FLOAT*[3]> t_f_const;    // Force
 
 typedef Kokkos::View<int*>                t_type;       // Type (int is enough as type)
@@ -59,5 +61,56 @@ typedef Kokkos::View<T_V_FLOAT*>          t_mass;       // Mass
 typedef Kokkos::View<const T_V_FLOAT*>    t_mass_const; // Mass
 
 typedef Kokkos::DefaultExecutionSpace::memory_space t_neigh_mem_space;
+
+template<class Scalar>
+struct t_scalar3 {
+  Scalar x,y,z;
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3() {
+    x = 0; y = 0; z = 0;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3(const t_scalar3& rhs) {
+    x = rhs.x; y = rhs.y; z = rhs.z;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3(const Scalar& x_, const Scalar& y_, const Scalar& z_ ) {
+    x = x_; y = y_; z = z_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3 operator= (const t_scalar3& rhs) {
+    x = rhs.x; y = rhs.y; z = rhs.z;
+    return *this;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3 operator= (const volatile t_scalar3& rhs) {
+    x = rhs.x; y = rhs.y; z = rhs.z;
+    return *this;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3 operator+= (const t_scalar3& rhs) {
+    x += rhs.x; y += rhs.y; z += rhs.z;
+    return *this;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  t_scalar3 operator+= (const volatile t_scalar3& rhs) volatile {
+    x += rhs.x; y += rhs.y; z += rhs.z;
+    return *this;
+  }
+};
+
+template<class Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+t_scalar3<Scalar> operator +
+  (const t_scalar3<Scalar>& a, const t_scalar3<Scalar>& b) {
+  return t_scalar3<Scalar>(a.x+b.x,a.y+b.y,a.z+b.z);
+}
 #endif
 

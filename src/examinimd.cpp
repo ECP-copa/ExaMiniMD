@@ -85,7 +85,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Compute NeighList
   if(neighbor)
-    neighbor->create_neigh_list(system,binning);
+    neighbor->create_neigh_list(system,binning,force->half_neigh,false);
 
   // Compute initial forces
   force->compute(system,binning,neighbor);
@@ -117,7 +117,7 @@ void ExaMiniMD::run(int nsteps) {
 
       // Compute Neighbor List if necessary
       if(neighbor)
-        neighbor->create_neigh_list(system,binning);
+        neighbor->create_neigh_list(system,binning,force->half_neigh,false);
     } else {
       // Exchange Halo
       comm->update_halo();
