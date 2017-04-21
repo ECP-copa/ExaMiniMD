@@ -21,7 +21,7 @@ available functionality for specific research purposes.
 This application is using Kokkos as a programming model which you can clone
 from github via:
 ```
-git clone https://github.com/kokkos/kokkos
+git clone https://github.com/kokkos/kokkos ~/kokkos
 ```
 
 # Current Capabilities
@@ -54,7 +54,8 @@ documentation of Kokkos at github.com/kokkos/kokkos
 Currently ExaMiniMD requires the develop branch of Kokkos as of 
 April 2017.
 Here are some quickstart information which assume that Kokkos was 
-cloned into ${HOME}/kokkos and you are in the "src" directory:
+cloned into ${HOME}/kokkos (see above) and you are in the "src"
+directory:
 
 Intel Sandy-Bridge CPU / Serial / MPI:
 ```
