@@ -42,16 +42,25 @@ enum {INPUT_LAMMPS};
 #endif
 
 // Define Kokkos View Types
-typedef Kokkos::View<T_X_FLOAT*[3]>       t_x;          // Positions
-typedef Kokkos::View<const T_X_FLOAT*[3]> t_x_const;    // Positions
+typedef Kokkos::View<T_X_FLOAT*[3],Kokkos::LayoutRight>       t_x;          // Positions
+typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight> t_x_const;    // Positions
+typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight,
+    Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_x_const_rnd;    // Positions
 typedef Kokkos::View<T_V_FLOAT*[3]>       t_v;          // Velocities
 typedef Kokkos::View<T_F_FLOAT*[3]>       t_f;          // Force
 typedef Kokkos::View<T_F_FLOAT*[3],
-    Kokkos::MemoryTraits<Kokkos::Atomic>> t_f_atomic;   // Force
+#ifdef KOKKOS_ENABLE_SERIAL
+    Kokkos::MemoryTraits<std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Serial>::value?0:Kokkos::Atomic>>
+#else
+    Kokkos::MemoryTraits<Kokkos::Atomic>>
+#endif
+        t_f_atomic;   // Force
 typedef Kokkos::View<const T_F_FLOAT*[3]> t_f_const;    // Force
 
 typedef Kokkos::View<int*>                t_type;       // Type (int is enough as type)
 typedef Kokkos::View<const int*>          t_type_const; // Type (int is enough as type)
+typedef Kokkos::View<const int*,
+    Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_type_const_rnd; // Type (int is enough as type)
 typedef Kokkos::View<T_INT*>              t_id;         // ID
 typedef Kokkos::View<const T_INT*>        t_id_const;   // ID
 typedef Kokkos::View<T_FLOAT*>            t_q;          // Charge

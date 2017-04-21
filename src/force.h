@@ -13,6 +13,8 @@ public:
   virtual void init_coeff(int nargs, char** args);
 
   virtual void compute(System* system, Binning* binning, Neighbor* neigh);
+
+  virtual const char* name();
 };
 
 #include<modules_force.h>

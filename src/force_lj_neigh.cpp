@@ -32,6 +32,9 @@ void ForceLJNeigh::init_coeff(int nargs, char** args) {
   Kokkos::deep_copy(lj2,h_lj2);
   Kokkos::deep_copy(cutsq,h_cutsq);
 
+  rnd_lj1 = lj1;
+  rnd_lj2 = lj2;
+  rnd_cutsq = cutsq;
   step = 0;
 };
 
@@ -50,7 +53,6 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   f = system->f;
   f_a = system->f;
   type = system->type;
-  id = system->id;
   if(half_neigh)
     Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
   else
@@ -58,10 +60,12 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   Kokkos::fence();
 
   // Reset internal data handles so we don't keep a reference count
-  x = t_x();
+  /*x = t_x();
   type = t_type();
   f = t_f();
-  neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();
+  neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();*/
   step++;
 }
+
+const char* ForceLJNeigh::name() { return half_neigh?"ForceLJNeighHalf":"ForceLJNeighFull"; }
 

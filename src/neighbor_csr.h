@@ -169,7 +169,6 @@ public:
       const T_F_FLOAT z_i = x(i,2);
       const int type_i = type(i);
 
-      int neigh_count = 0;
       for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
       for(int by_j = by-1; by_j<by+2; by_j++)
       for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
@@ -263,7 +262,6 @@ public:
        const T_F_FLOAT z_i = x(i,2);
        const int type_i = type(i);
 
-       int neigh_count = 0;
        for(int bx_j = bx-1; bx_j<bx+2; bx_j++)
        for(int by_j = by-1; by_j<by+2; by_j++)
        for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {

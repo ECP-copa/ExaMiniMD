@@ -64,7 +64,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // system->print_particles();
   if(system->do_print) {
-    printf("Using: %s %s\n",neighbor->name(),comm->name());
+    printf("Using: %s %s %s %s\n",force->name(),neighbor->name(),comm->name(),binning->name());
   }
 
   // Ok lets go ahead and create the particles if that didn't happen yet
@@ -95,6 +95,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 void ExaMiniMD::run(int nsteps) {
   T_F_FLOAT neigh_cutoff = input->force_cutoff + input->neighbor_skin;
 
+  double last_time;
   Kokkos::Timer timer;
   // Timestep Loop
   for(int step = 1; step <= nsteps; step++ ) {
@@ -138,15 +139,20 @@ void ExaMiniMD::run(int nsteps) {
     if(step%input->thermo_rate==0) {
       Temperature temp(comm);
       double T = temp.compute(system);
-      if(system->do_print)
-        printf("%i Temperature: %lf\n",step, T);
+      if(system->do_print) {
+        double time = timer.seconds();
+        printf("%i %lf %lf %e\n",step, T, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
+        last_time = time;
+      }
     }
   }
 
+  double time = timer.seconds();
   Temperature temp(comm);
   double T = temp.compute(system);
+
   if(system->do_print)
-    printf("Finished: T %lf Time: %lf\n",T,timer.seconds());
+    printf("Finished: T: %lf Time: %lf Rate: %e\n",T,time,1.0*system->N*nsteps/time);
 }
 
 void ExaMiniMD::check_correctness() {}

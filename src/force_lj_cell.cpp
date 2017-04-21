@@ -52,3 +52,5 @@ void ForceLJCell::compute(System* system, Binning* binning, Neighbor*) {
   f = t_f();
 
 }
+
+const char* ForceLJCell::name() { return "ForceLJCellFull"; }

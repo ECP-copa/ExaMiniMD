@@ -24,18 +24,21 @@
 class ForceLJNeigh: public Force {
 private:
   int N_local;
-  t_x x;
+  t_x_const_rnd x;
   t_f f;
   t_f_atomic f_a;
   t_id id;
-  t_type type;
+  t_type_const_rnd type;
   Binning::t_bincount bin_count;
   Binning::t_binoffsets bin_offsets;
   T_INT nbinx,nbiny,nbinz,nhalo;
   int step;
 
   typedef Kokkos::View<T_F_FLOAT**> t_fparams;
+  typedef Kokkos::View<const T_F_FLOAT**,
+      Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_fparams_rnd;
   t_fparams lj1,lj2,cutsq;
+  t_fparams_rnd rnd_lj1,rnd_lj2,rnd_cutsq;
   typedef NeighListCSR<t_neigh_mem_space> t_neigh_list;
 
   t_neigh_list neigh_list;
@@ -78,11 +81,11 @@ public:
       const int type_j = type(j);
       const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-      if( rsq < cutsq(type_i,type_j) ) {
+      if( rsq < rnd_cutsq(type_i,type_j) ) {
 
         T_F_FLOAT r2inv = 1.0/rsq;
         T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        T_F_FLOAT fpair = (r6inv * (lj1(type_i,type_j)*r6inv - lj2(type_i,type_j))) * r2inv;
+        T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
         fxi += dx*fpair;
         fyi += dy*fpair;
         fzi += dz*fpair;
@@ -118,11 +121,11 @@ public:
       const int type_j = type(j);
       const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-      if( rsq < cutsq(type_i,type_j) ) {
+      if( rsq < rnd_cutsq(type_i,type_j) ) {
 
         T_F_FLOAT r2inv = 1.0/rsq;
         T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        T_F_FLOAT fpair = (r6inv * (lj1(type_i,type_j)*r6inv - lj2(type_i,type_j))) * r2inv;
+        T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
         fxi += dx*fpair;
         fyi += dy*fpair;
         fzi += dz*fpair;
@@ -138,6 +141,8 @@ public:
     f_a(i,2) += fzi;
 
   }
+
+  const char* name();
 };
 #endif
 #endif

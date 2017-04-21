@@ -89,6 +89,8 @@ public:
       f(i,2) += f_i.z;
     });
   } 
+
+  const char* name();
 };
 #endif
 #endif
