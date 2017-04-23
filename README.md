@@ -21,7 +21,7 @@ available functionality for specific research purposes.
 This application is using Kokkos as a programming model which you can clone
 from github via:
 ```
-git clone https://github.com/kokkos/kokkos ~/kokkos
+git clone -b develop https://github.com/kokkos/kokkos ~/kokkos
 ```
 
 # Current Capabilities
