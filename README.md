@@ -21,7 +21,7 @@ available functionality for specific research purposes.
 This application is using Kokkos as a programming model which you can clone
 from github via:
 ```
-git clone -b develop https://github.com/kokkos/kokkos ~/kokkos
+git clone https://github.com/kokkos/kokkos ~/kokkos
 ```
 
 # Current Capabilities
@@ -51,8 +51,7 @@ git clone -b develop https://github.com/kokkos/kokkos ~/kokkos
 ExaMiniMD utilizes the standard GNU Make build system of Kokkos. For
 detailed information about the Kokkos build process please refer to 
 documentation of Kokkos at github.com/kokkos/kokkos
-Currently ExaMiniMD requires the develop branch of Kokkos as of 
-April 2017.
+ExaMiniMD requires Kokkos version 2.03 (April 2017) as a minimum.
 Here are some quickstart information which assume that Kokkos was 
 cloned into ${HOME}/kokkos (see above) and you are in the "src"
 directory:
