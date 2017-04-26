@@ -48,6 +48,10 @@ public:
   // Get Processor rank
   virtual int process_rank();
 
+  // Get number of processors
+  virtual int num_processes();
+
+  // Get class name
   virtual const char* name();
 };
 

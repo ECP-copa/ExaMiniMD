@@ -19,5 +19,6 @@ void Comm::create_domain_decomposition() {
   system->sub_domain_z = system->sub_domain_hi_z = system->domain_z;
 };
 int Comm::process_rank() {return 0;}
+int Comm::num_processes() {return 1;}
 const char* Comm::name() {return "InvalidComm";}
 

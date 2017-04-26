@@ -340,4 +340,5 @@ void CommMPI::update_halo() {
 const char* CommMPI::name() { return "CommMPI"; }
 
 int CommMPI::process_rank() { return proc_rank; }
+int CommMPI::num_processes() { return proc_size; }
 #endif

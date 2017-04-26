@@ -387,6 +387,7 @@ public:
 
   const char* name();
   int process_rank();
+  int num_processes();
 };
 
 #endif
