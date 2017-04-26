@@ -53,6 +53,7 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   f = system->f;
   f_a = system->f;
   type = system->type;
+  id = system->id;
   if(half_neigh)
     Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
   else

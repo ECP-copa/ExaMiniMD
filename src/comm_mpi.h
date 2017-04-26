@@ -32,7 +32,8 @@ class CommMPI: public Comm {
   // Owned Variables
 
   int phase; // Communication Phase
-  int proc_neighbors[6]; // Neighbor for each phase
+  int proc_neighbors_recv[6]; // Neighbor for each phase
+  int proc_neighbors_send[6]; // Neighbor for each phase
   int proc_num_recv[6];  // Number of received particles in each phase
   int proc_num_send[6];  // Number of send particles in each phase
   int proc_pos[3];       // My process position
@@ -73,6 +74,7 @@ public:
   void exchange();
   void exchange_halo();
   void update_halo();
+  void scan_int(T_INT* vals, T_INT count);
   void reduce_int(T_INT* vals, T_INT count);
   void reduce_float(T_FLOAT* vals, T_INT count);
 

@@ -8,6 +8,7 @@ void Comm::update_halo() {};
 void Comm::update_force() {};
 void Comm::reduce_float(T_FLOAT*, T_INT) {};
 void Comm::reduce_int(T_INT*, T_INT) {};
+void Comm::scan_int(T_INT*, T_INT) {};
 void Comm::weighted_reduce_float(T_FLOAT* , T_INT* , T_INT ) {};
 void Comm::create_domain_decomposition() {
   system->sub_domain_lo_x = 0.0;
