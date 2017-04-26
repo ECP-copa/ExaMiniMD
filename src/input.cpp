@@ -157,8 +157,16 @@ void Input::read_lammps_file(const char* filename) {
     line[0] = 0;
     file.getline(line,511);
   }
-  if(system->do_print)
+  if(system->do_print) {
+    printf("\n");
+    printf("#InputFile:\n");
+    printf("#=========================================================\n");
+
     input_data.print();
+
+    printf("#=========================================================\n");
+    printf("\n");
+  }
   for(int l = 0; l<input_data.nlines; l++)
     check_lammps_command(l);
 }
@@ -528,11 +536,5 @@ void Input::create_lattice(Comm* comm) {
     Kokkos::deep_copy(s.q,h_q);
     Kokkos::deep_copy(s.type,h_type);
     Kokkos::deep_copy(s.id,h_id);
-
-    T = temp.compute(system);
-
-    if(system->do_print)
-      printf("Temperature: %lf %lf %lf\n",T,T_init_scale,temperature_target);
-
   }
 }
