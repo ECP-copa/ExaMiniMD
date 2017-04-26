@@ -33,12 +33,13 @@ private:
   Binning::t_binoffsets bin_offsets;
   T_INT nbinx,nbiny,nbinz,nhalo;
   int step;
+  int num_nrepeat;
 
   typedef Kokkos::View<T_F_FLOAT**> t_fparams;
   typedef Kokkos::View<const T_F_FLOAT**,
       Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_fparams_rnd;
-  t_fparams lj1,lj2,cutsq,num_nrepeat;
-  t_fparams_rnd rnd_lj1,rnd_lj2,rnd_cutsq,rnd_num_nrepeat;
+  t_fparams lj1,lj2,cutsq;
+  t_fparams_rnd rnd_lj1,rnd_lj2,rnd_cutsq;
   typedef NeighListCSR<t_neigh_mem_space> t_neigh_list;
 
   t_neigh_list neigh_list;
@@ -87,7 +88,7 @@ public:
 				// num_nrepeat acts as an intensity dial.
 				// Could/should we implement this as a 'kokkos:parallel_for' loop?
 				//-----------------
-				for(int nrepeat = 0; nrepeat < num_nrepeat, nrepeat++) {
+				for(int nrepeat = 0; nrepeat < num_nrepeat; nrepeat++) {
 					T_F_FLOAT r2inv = 1.0/rsq;
         	T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
         	T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
@@ -97,9 +98,9 @@ public:
 				}
       }
     }
-    f(i,0) += fxi;
-    f(i,1) += fyi;
-    f(i,2) += fzi;
+    f(i,0) += fxi/num_nrepeat;
+    f(i,1) += fyi/num_nrepeat;
+    f(i,2) += fzi/num_nrepeat;
 
   }
 
@@ -133,7 +134,7 @@ public:
 				// num_nrepeat acts as an intensity dial.
 				// Could/should we implement this as a 'kokkos:parallel_for' loop?
 				//-----------------
-				for(int nrepeat = 0; nrepeat < num_nrepeat, nrepeat++) {
+				for(int nrepeat = 0; nrepeat < num_nrepeat; nrepeat++) {
 					T_F_FLOAT r2inv = 1.0/rsq;
         	T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
         	T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
@@ -141,16 +142,16 @@ public:
         	fyi += dy*fpair;
         	fzi += dz*fpair;
         	if(j<N_local) {
-        	  f_a(j,0) -= dx*fpair;
-        	  f_a(j,1) -= dy*fpair;
-        	  f_a(j,2) -= dz*fpair;
+        	  f_a(j,0) -= dx*fpair/num_nrepeat;
+        	  f_a(j,1) -= dy*fpair/num_nrepeat;
+        	  f_a(j,2) -= dz*fpair/num_nrepeat;
         	}
 				}
       }
     }
-    f_a(i,0) += fxi;
-    f_a(i,1) += fyi;
-    f_a(i,2) += fzi;
+    f_a(i,0) += fxi/num_nrepeat;
+    f_a(i,1) += fyi/num_nrepeat;
+    f_a(i,2) += fzi/num_nrepeat;
 
   }
 

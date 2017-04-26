@@ -4,7 +4,6 @@ ForceLJIDialNeigh::ForceLJIDialNeigh(char** args, System* system, bool half_neig
   lj1 = t_fparams("ForceLJIDialNeigh::lj1",system->ntypes,system->ntypes);
   lj2 = t_fparams("ForceLJIDialNeigh::lj2",system->ntypes,system->ntypes);
   cutsq = t_fparams("ForceLJIDialNeigh::cutsq",system->ntypes,system->ntypes);
-  num_nrepeat = t_fparams("ForceLJIDialNeigh::num_nrepeat",system->ntypes,system->ntypes);
 }
 
 void ForceLJIDialNeigh::init_coeff(int nargs, char** args) {
@@ -14,16 +13,14 @@ void ForceLJIDialNeigh::init_coeff(int nargs, char** args) {
   double eps = atof(args[3]);
   double sigma = atof(args[4]);
   double cut = atof(args[5]);
-  int max_nrepeat = atoi(args[6]);
+  num_nrepeat = atoi(args[6]);
 
   t_fparams::HostMirror h_lj1 = Kokkos::create_mirror_view(lj1);
   t_fparams::HostMirror h_lj2 = Kokkos::create_mirror_view(lj2);
   t_fparams::HostMirror h_cutsq = Kokkos::create_mirror_view(cutsq);
-  t_fparams::HostMirror num_nrepeat = Kokkos::create_mirror_view(num_nrepeat);
   Kokkos::deep_copy(h_lj1,lj1);
   Kokkos::deep_copy(h_lj2,lj2);
   Kokkos::deep_copy(h_cutsq,cutsq);
-  Kokkos::deep_copy(h_num_nrepeat,num_nrepeat);
 
   h_lj1(t1,t2) = 48.0 * eps * pow(sigma,12.0);
   h_lj2(t1,t2) = 24.0 * eps * pow(sigma,6.0);
@@ -31,17 +28,14 @@ void ForceLJIDialNeigh::init_coeff(int nargs, char** args) {
   h_lj2(t2,t1) = h_lj2(t1,t2);
   h_cutsq(t1,t2) = cut*cut;
   h_cutsq(t2,t1) = cut*cut;
-  h_num_nrepeat = max_nrepeat;
 
   Kokkos::deep_copy(lj1,h_lj1);
   Kokkos::deep_copy(lj2,h_lj2);
   Kokkos::deep_copy(cutsq,h_cutsq);
-  Kokkos::deep_copy(num_nrepeat,h_num_nrepeat);
 
   rnd_lj1 = lj1;
   rnd_lj2 = lj2;
   rnd_cutsq = cutsq;
-  rnd_num_nrepeat = num_nrepeat;
   step = 0;
 };
 

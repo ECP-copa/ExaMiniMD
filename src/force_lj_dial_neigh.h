@@ -71,6 +71,8 @@ public:
     T_F_FLOAT fyi = 0.0;
     T_F_FLOAT fzi = 0.0;
 
+// Modify by adding a parallel_for to increase computational intensity of LJ interatomic potential,
+// where the length of the loop acts as a dial of computational intensity.
 //    printf("NUMNEIGHS: %i %i\n",i,num_neighs);
     for(int jj = 0; jj < num_neighs; jj++) {
       T_INT j = neighs_i(jj);
