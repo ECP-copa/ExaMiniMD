@@ -15,6 +15,8 @@ enum {BINNING_KKSORT};
 enum {COMM_SERIAL,COMM_MPI};
 // Force Type
 enum {FORCE_LJ};
+// Force Type: LJ with intensity dial
+enum {FORCE_LJ_IDIAL};
 // Force Iteration Type
 enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL, FORCE_ITER_NEIGH_HALF};
 // Neighbor Type
