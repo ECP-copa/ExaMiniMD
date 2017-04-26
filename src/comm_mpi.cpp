@@ -310,6 +310,9 @@ void CommMPI::exchange_halo() {
 void CommMPI::update_halo() {
   N_ghost = 0;
   s=*system;
+  pack_buffer_update = t_buffer_update((T_X_FLOAT*)pack_buffer.data(),pack_indicies_all.extent(1));
+  unpack_buffer_update = t_buffer_update((T_X_FLOAT*)unpack_buffer.data(),pack_indicies_all.extent(1));
+
   for(phase = 0; phase<6; phase++) {
     pack_indicies = Kokkos::subview(pack_indicies_all,phase,Kokkos::ALL());
     if(proc_grid[phase/2]>1) {  
@@ -319,12 +322,12 @@ void CommMPI::update_halo() {
          *this);
       MPI_Request request;
       MPI_Status status;
-      MPI_Irecv(unpack_buffer.data(),proc_num_recv[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_recv[phase],100002,MPI_COMM_WORLD,&request);
-      MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
+      MPI_Irecv(unpack_buffer.data(),proc_num_recv[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_recv[phase],100002,MPI_COMM_WORLD,&request);
+      MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
       s = *system;
       MPI_Wait(&request,&status);
       Kokkos::parallel_for("CommMPI::halo_update_unpack",
-                Kokkos::RangePolicy<TagUnpack, Kokkos::IndexType<T_INT> >(0,proc_num_recv[phase]),
+                Kokkos::RangePolicy<TagHaloUpdateUnpack, Kokkos::IndexType<T_INT> >(0,proc_num_recv[phase]),
                 *this);
 
     } else {
