@@ -36,6 +36,9 @@ public:
   // Do a sum reduction over integers
   virtual void reduce_int(T_INT* values, T_INT N);
 
+  // Do an inclusive scan over integers
+  virtual void scan_int(T_INT* values, T_INT N);
+
   // Do a sum reduction over floats with weights
   virtual void weighted_reduce_float(T_FLOAT* values, T_INT* weight, T_INT N);
 
@@ -45,6 +48,10 @@ public:
   // Get Processor rank
   virtual int process_rank();
 
+  // Get number of processors
+  virtual int num_processes();
+
+  // Get class name
   virtual const char* name();
 };
 

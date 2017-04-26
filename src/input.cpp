@@ -157,8 +157,16 @@ void Input::read_lammps_file(const char* filename) {
     line[0] = 0;
     file.getline(line,511);
   }
-  if(system->do_print)
+  if(system->do_print) {
+    printf("\n");
+    printf("#InputFile:\n");
+    printf("#=========================================================\n");
+
     input_data.print();
+
+    printf("#=========================================================\n");
+    printf("\n");
+  }
   for(int l = 0; l<input_data.nlines; l++)
     check_lammps_command(l);
 }
@@ -365,9 +373,9 @@ void Input::create_lattice(Comm* comm) {
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
 
-    for(T_INT iz=iz_start; iz<iz_end; iz++)
-      for(T_INT iy=iy_start; iy<iy_end; iy++)
-        for(T_INT ix=ix_start; ix<ix_end; ix++) {
+    for(T_INT iz=iz_start; iz<=iz_end; iz++)
+      for(T_INT iy=iy_start; iy<=iy_end; iy++)
+        for(T_INT ix=ix_start; ix<=ix_end; ix++) {
           if( (lattice_constant * ix >= s.sub_domain_lo_x) &&
               (lattice_constant * iy >= s.sub_domain_lo_y) &&
               (lattice_constant * iz >= s.sub_domain_lo_z) &&
@@ -388,6 +396,12 @@ void Input::create_lattice(Comm* comm) {
     system->N_local = n;
     system->N = n;
     comm->reduce_int(&system->N,1);
+
+    // Make ids unique over all processes
+    T_INT N_local_offset = n;
+    comm->scan_int(&N_local_offset,1);
+    for(T_INT i = 0; i<n; i++)
+      h_id(i) += N_local_offset - n;
 
     if(system->do_print)
       printf("Atoms: %i %i\n",system->N,system->N_local);
@@ -431,20 +445,19 @@ void Input::create_lattice(Comm* comm) {
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
 
-    for(T_INT iz=iz_start; iz<iz_end; iz++)
-      for(T_INT iy=iy_start; iy<iy_end; iy++)
-        for(T_INT ix=ix_start; ix<ix_end; ix++) {
-          if( (lattice_constant * ix >= s.sub_domain_lo_x) &&
-              (lattice_constant * iy >= s.sub_domain_lo_y) &&
-              (lattice_constant * iz >= s.sub_domain_lo_z) &&
-              (lattice_constant * ix <  s.sub_domain_hi_x) &&
-              (lattice_constant * iy <  s.sub_domain_hi_y) &&
-              (lattice_constant * iz <  s.sub_domain_hi_z) ) {
-            for(int k = 0; k<4; k++) {
+    for(T_INT iz=iz_start; iz<=iz_end; iz++)
+      for(T_INT iy=iy_start; iy<=iy_end; iy++)
+        for(T_INT ix=ix_start; ix<=ix_end; ix++) {
+          for(int k = 0; k<4; k++) {
+            if( (lattice_constant * (1.0*ix + basis[k][0]) >= s.sub_domain_lo_x) &&
+                (lattice_constant * (1.0*iy + basis[k][1]) >= s.sub_domain_lo_y) &&
+                (lattice_constant * (1.0*iz + basis[k][2]) >= s.sub_domain_lo_z) &&
+                (lattice_constant * (1.0*ix + basis[k][0]) <  s.sub_domain_hi_x) &&
+                (lattice_constant * (1.0*iy + basis[k][1]) <  s.sub_domain_hi_y) &&
+                (lattice_constant * (1.0*iz + basis[k][2]) <  s.sub_domain_hi_z) ) {
               h_x(n,0) = lattice_constant * (1.0*ix + basis[k][0]);
               h_x(n,1) = lattice_constant * (1.0*iy + basis[k][1]) ;
               h_x(n,2) = lattice_constant * (1.0*iz + basis[k][2]) ;
-
 
               h_type(n) = rand()%s.ntypes;
               h_id(n) = n+1;
@@ -455,6 +468,13 @@ void Input::create_lattice(Comm* comm) {
 
     system->N_local = n;
     system->N = n;
+
+    // Make ids unique over all processes
+    T_INT N_local_offset = n;
+    comm->scan_int(&N_local_offset,1);
+    for(T_INT i = 0; i<n; i++)
+      h_id(i) += N_local_offset - n;
+
     comm->reduce_int(&system->N,1);
 
     if(system->do_print)
@@ -525,11 +545,5 @@ void Input::create_lattice(Comm* comm) {
     Kokkos::deep_copy(s.q,h_q);
     Kokkos::deep_copy(s.type,h_type);
     Kokkos::deep_copy(s.id,h_id);
-
-    T = temp.compute(system);
-
-    if(system->do_print)
-      printf("Temperature: %lf %lf %lf\n",T,T_init_scale,temperature_target);
-
   }
 }
