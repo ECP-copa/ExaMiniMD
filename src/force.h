@@ -7,11 +7,14 @@
 
 class Force {
 public:
-  Force(char** args, System* system);
+  bool half_neigh;
+  Force(char** args, System* system, bool half_neigh_);
 
   virtual void init_coeff(int nargs, char** args);
 
   virtual void compute(System* system, Binning* binning, Neighbor* neigh);
+
+  virtual const char* name();
 };
 
 #include<modules_force.h>

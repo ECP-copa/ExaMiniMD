@@ -47,10 +47,12 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   }
 
   // Create Neighbor Instance
-  if(input->neighbor_type == NEIGH_CSR_FULL) {
-    neighbor = new NeighborCSR<Kokkos::DefaultExecutionSpace::memory_space>();
-    neighbor->init(input->force_cutoff + input->neighbor_skin);
-  }
+  if (false) {}
+#define MODULES_INSTANTIATION
+#include<modules_neighbor.h>
+#undef MODULES_INSTANTIATION
+  else if(system->do_print)
+    printf("Error: Invalid NeighborType\n");
 
   // Create Communication Submodule
   if (false) {}
@@ -59,6 +61,11 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 #undef MODULES_INSTANTIATION
   else if(system->do_print)
     printf("Error: Invalid CommType\n");
+
+  // system->print_particles();
+  if(system->do_print) {
+    printf("Using: %s %s %s %s\n",force->name(),neighbor->name(),comm->name(),binning->name());
+  }
 
   // Ok lets go ahead and create the particles if that didn't happen yet
   if(system->N == 0)
@@ -78,72 +85,106 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Compute NeighList
   if(neighbor)
-    neighbor->create_neigh_list(system,binning);
+    neighbor->create_neigh_list(system,binning,force->half_neigh,false);
 
   // Compute initial forces
   force->compute(system,binning,neighbor);
 
- // system->print_particles();
- if(system->do_print) {
-   printf("Using Comm: %s\n",comm->name());
- }
 }
 
 void ExaMiniMD::run(int nsteps) {
   T_F_FLOAT neigh_cutoff = input->force_cutoff + input->neighbor_skin;
+  Temperature temp(comm);
+  double T = temp.compute(system);
+  if(system->do_print) {
+    printf("\n");
+    printf("#Timestep Temperature Time Atomsteps/s\n");
+    printf("%i %lf %lf %e\n",0,T,0.0,0.0);
+  }
 
-  Kokkos::Timer timer;
+  double force_time = 0;
+  double comm_time  = 0;
+  double neigh_time = 0;
+  double other_time = 0;
+
+  double last_time;
+  Kokkos::Timer timer,force_timer,comm_timer,neigh_timer,other_timer;
+
   // Timestep Loop
   for(int step = 1; step <= nsteps; step++ ) {
     
     // Do first part of the verlet time step integration 
+    other_timer.reset();
     integrator->initial_integrate();
+    other_time += other_timer.seconds();
 
     if(step%input->comm_exchange_rate==0 && step >0) {
       // Exchange particles
+      comm_timer.reset();
       comm->exchange(); 
+      comm_time += comm_timer.seconds();
 
       // Sort particles
+      other_timer.reset();
       binning->create_binning(neigh_cutoff,neigh_cutoff,neigh_cutoff,1,true,false,true);
+      other_time += other_timer.seconds();
 
       // Exchange Halo
+      comm_timer.reset();
       comm->exchange_halo();
+      comm_time += comm_timer.seconds();
       
       // Create binning for neighborlist construction
+      neigh_timer.reset();
       binning->create_binning(neigh_cutoff,neigh_cutoff,neigh_cutoff,1,true,true,false);
 
       // Compute Neighbor List if necessary
       if(neighbor)
-        neighbor->create_neigh_list(system,binning);
+        neighbor->create_neigh_list(system,binning,force->half_neigh,false);
+      neigh_time += neigh_timer.seconds();
     } else {
       // Exchange Halo
+      comm_timer.reset();
       comm->update_halo();
+      comm_time += comm_timer.seconds();
     }
 
     // Zero out forces 
+    force_timer.reset();
     Kokkos::deep_copy(system->f,0.0);
    
     // Compute Short Range Force
     force->compute(system,binning,neighbor);
+    force_time += force_timer.seconds();
 
     // This is where Bonds, Angles and KSpace should go eventually 
     
     // Do second part of the verlet time step integration 
+    other_timer.reset();
     integrator->final_integrate();
 
     // On output steps print output
     if(step%input->thermo_rate==0) {
-      Temperature temp(comm);
       double T = temp.compute(system);
-      if(system->do_print)
-        printf("%i Temperature: %lf\n",step, T);
+      if(system->do_print) {
+        double time = timer.seconds();
+        printf("%i %lf %lf %e\n",step, T, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
+        last_time = time;
+      }
     }
+    other_time += other_timer.seconds();
   }
 
-  Temperature temp(comm);
-  double T = temp.compute(system);
-  if(system->do_print)
-    printf("Finished: T %lf Time: %lf\n",T,timer.seconds());
+  double time = timer.seconds();
+  T = temp.compute(system);
+
+  if(system->do_print) {
+    printf("\n");
+    printf("#Procs Particles | Time T_Force T_Neigh T_Comm T_Other | Steps/s Atomsteps/s Atomsteps/(proc*s)\n");
+    printf("%i %i | %lf %lf %lf %lf %lf | %lf %e %e PERFORMANCE\n",comm->num_processes(),system->N,time,
+      force_time,neigh_time,comm_time,other_time,
+      1.0*nsteps/time,1.0*system->N*nsteps/time,1.0*system->N*nsteps/time/comm->num_processes());
+  }
 }
 
 void ExaMiniMD::check_correctness() {}

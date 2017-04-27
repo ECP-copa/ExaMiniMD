@@ -101,3 +101,5 @@ void BinningKKSort::create_binning(T_X_FLOAT dx_in, T_X_FLOAT dy_in, T_X_FLOAT d
   }
 }
 
+const char* BinningKKSort::name() { return "BinningKKSort"; }
+

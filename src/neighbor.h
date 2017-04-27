@@ -6,12 +6,14 @@
 
 class Neighbor {
 public:
+  int neigh_type;
   Neighbor();
   virtual ~Neighbor();
   typedef Kokkos::View<int**> t_neigh_list;
   virtual void init(T_X_FLOAT neighcut);
-  virtual void create_neigh_list(System* system, Binning* binning = NULL);
+  virtual void create_neigh_list(System* system, Binning* binning, bool half_neigh_, bool ghost_neighs_);
   t_neigh_list get_neigh_list();
+  virtual const char* name();
 };
 
 #include <modules_neighbor.h>

@@ -21,7 +21,7 @@ available functionality for specific research purposes.
 This application is using Kokkos as a programming model which you can clone
 from github via:
 ```
-git clone https://github.com/kokkos/kokkos
+git clone https://github.com/kokkos/kokkos ~/kokkos
 ```
 
 # Current Capabilities
@@ -51,8 +51,15 @@ git clone https://github.com/kokkos/kokkos
 ExaMiniMD utilizes the standard GNU Make build system of Kokkos. For
 detailed information about the Kokkos build process please refer to 
 documentation of Kokkos at github.com/kokkos/kokkos
+ExaMiniMD requires Kokkos version 2.03 (April 2017) as a minimum.
 Here are some quickstart information which assume that Kokkos was 
-cloned into ${HOME}/kokkos and you are in the "src" directory:
+cloned into ${HOME}/kokkos (see above) and you are in the "src"
+directory:
+
+Intel Sandy-Bridge CPU / Serial / MPI:
+```
+  make -j KOKKOS_ARCH=SNB KOKKOS_DEVICES=Serial CXX=mpicxx MPI=1
+```
 
 Intel Haswell CPU / Pthread / No MPI:
 ```
@@ -77,6 +84,6 @@ restricted set of LAMMPS commands. An example input file is provided in the
 input directory. Assuming you build in the src directory run:
 
 ```
-./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-threads=12
+mpirun -np 2 -bind-to socket ./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-threads=12
 ```
 

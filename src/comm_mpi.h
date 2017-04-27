@@ -32,7 +32,8 @@ class CommMPI: public Comm {
   // Owned Variables
 
   int phase; // Communication Phase
-  int proc_neighbors[6]; // Neighbor for each phase
+  int proc_neighbors_recv[6]; // Neighbor for each phase
+  int proc_neighbors_send[6]; // Neighbor for each phase
   int proc_num_recv[6];  // Number of received particles in each phase
   int proc_num_send[6];  // Number of send particles in each phase
   int proc_pos[3];       // My process position
@@ -44,6 +45,9 @@ class CommMPI: public Comm {
   Kokkos::View<int, Kokkos::MemoryTraits<Kokkos::Atomic> > pack_count;
   Kokkos::View<Particle*> pack_buffer;
   Kokkos::View<Particle*> unpack_buffer;
+  typedef Kokkos::View<T_X_FLOAT*[3], Kokkos::MemoryTraits<Kokkos::Unmanaged>> t_buffer_update;
+  t_buffer_update pack_buffer_update;
+  t_buffer_update unpack_buffer_update;
 
   Kokkos::View<T_INT**,Kokkos::LayoutRight> pack_indicies_all;
   Kokkos::View<T_INT*,Kokkos::LayoutRight,Kokkos::MemoryTraits<Kokkos::Unmanaged> > pack_indicies;
@@ -73,6 +77,7 @@ public:
   void exchange();
   void exchange_halo();
   void update_halo();
+  void scan_int(T_INT* vals, T_INT count);
   void reduce_int(T_INT* vals, T_INT count);
   void reduce_float(T_FLOAT* vals, T_INT count);
 
@@ -353,38 +358,58 @@ public:
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const TagHaloUpdateSelf,
-                   const T_INT& i) const {
+                   const T_INT& ii) const {
 
-    Particle p = s.get_particle(pack_indicies(i));
+    const T_INT i = pack_indicies(ii);
+    T_X_FLOAT x_i = s.x(i,0);
+    T_X_FLOAT y_i = s.x(i,1);
+    T_X_FLOAT z_i = s.x(i,2);
+
     switch (phase) {
-      case 0: p.x -= s.domain_x; break;
-      case 1: p.x += s.domain_x; break;
-      case 2: p.y -= s.domain_y; break;
-      case 3: p.y += s.domain_y; break;
-      case 4: p.z -= s.domain_z; break;
-      case 5: p.z += s.domain_z; break;
+      case 0: x_i -= s.domain_x; break;
+      case 1: x_i += s.domain_x; break;
+      case 2: y_i -= s.domain_y; break;
+      case 3: y_i += s.domain_y; break;
+      case 4: z_i -= s.domain_z; break;
+      case 5: z_i += s.domain_z; break;
     }
-    s.set_particle(N_local + N_ghost + i, p);     
+    s.x(N_local + N_ghost + ii, 0) = x_i;
+    s.x(N_local + N_ghost + ii, 1) = y_i;
+    s.x(N_local + N_ghost + ii, 2) = z_i;
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const TagHaloUpdatePack,
-                   const T_INT& i) const {
+                   const T_INT& ii) const {
 
-    Particle p = s.get_particle(pack_indicies(i));
+    const T_INT i = pack_indicies(ii);
+    T_X_FLOAT x_i = s.x(i,0);
+    T_X_FLOAT y_i = s.x(i,1);
+    T_X_FLOAT z_i = s.x(i,2);
+
     switch (phase) {
-      case 0: if(proc_pos[0] == proc_grid[0]-1) p.x -= s.domain_x; break;
-      case 1: if(proc_pos[0] == 0)              p.x += s.domain_x; break;
-      case 2: if(proc_pos[1] == proc_grid[1]-1) p.y -= s.domain_y; break;
-      case 3: if(proc_pos[1] == 0)              p.y += s.domain_y; break;
-      case 4: if(proc_pos[2] == proc_grid[2]-1) p.z -= s.domain_z; break;
-      case 5: if(proc_pos[2] == 0)              p.z += s.domain_z; break;
+      case 0: if(proc_pos[0] == proc_grid[0]-1) x_i -= s.domain_x; break;
+      case 1: if(proc_pos[0] == 0)              x_i += s.domain_x; break;
+      case 2: if(proc_pos[1] == proc_grid[1]-1) y_i -= s.domain_y; break;
+      case 3: if(proc_pos[1] == 0)              y_i += s.domain_y; break;
+      case 4: if(proc_pos[2] == proc_grid[2]-1) z_i -= s.domain_z; break;
+      case 5: if(proc_pos[2] == 0)              z_i += s.domain_z; break;
     }
-    pack_buffer(i) = p;
+    pack_buffer_update(ii, 0) = x_i;
+    pack_buffer_update(ii, 1) = y_i;
+    pack_buffer_update(ii, 2) = z_i;
   }
 
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloUpdateUnpack,
+                   const T_INT& ii) const {
+    s.x(N_local + N_ghost + ii, 0) = unpack_buffer_update(ii, 0);
+    s.x(N_local + N_ghost + ii, 1) = unpack_buffer_update(ii, 1);
+    s.x(N_local + N_ghost + ii, 2) = unpack_buffer_update(ii, 2);
+  }
   const char* name();
   int process_rank();
+  int num_processes();
 };
 
 #endif
