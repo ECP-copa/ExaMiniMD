@@ -62,7 +62,6 @@ public:
     const T_F_FLOAT y_i = x(i,1);
     const T_F_FLOAT z_i = x(i,2);
     const int type_i = type(i);
-    const int type_j = type(j);
 
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
 
@@ -88,19 +87,21 @@ public:
 				// intensity(type_i,type_j) acts as an intensity dial.
 				// Could/should we implement this as a 'kokkos:parallel_for' loop?
 				//-----------------
+				T_F_FLOAT fpair = 0;
 				for(int repeat = 0; repeat < intensity(type_i,type_j); repeat++) {
 					T_F_FLOAT r2inv = 1.0/rsq;
         	T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        	T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
-        	fxi += dx*fpair;
-        	fyi += dy*fpair;
-        	fzi += dz*fpair;
-				}
+          fpair += (r6inv * (rnd_lj1(type_i,type_j)*r6inv
+                  - rnd_lj2(type_i,type_j))) * r2inv/intensity(type_i,type_j);
+        }
+				fxi += dx*fpair;
+				fyi += dy*fpair;
+				fzi += dz*fpair;
       }
     }
-    f(i,0) += fxi/intensity(type_i,type_j);
-    f(i,1) += fyi/intensity(type_i,type_j);
-    f(i,2) += fzi/intensity(type_i,type_j);
+    f(i,0) += fxi;
+    f(i,1) += fyi;
+    f(i,2) += fzi;
 
   }
 
@@ -110,7 +111,6 @@ public:
     const T_F_FLOAT y_i = x(i,1);
     const T_F_FLOAT z_i = x(i,2);
     const int type_i = type(i);
-    const int type_j = type(j);
 
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
 
@@ -135,24 +135,26 @@ public:
 				// intensity(type_i,type_j) acts as an intensity dial.
 				// Could/should we implement this as a 'kokkos:parallel_for' loop?
 				//-----------------
+				T_F_FLOAT fpair = 0;
 				for(int repeat = 0; repeat < intensity(type_i,type_j); repeat++) {
 					T_F_FLOAT r2inv = 1.0/rsq;
         	T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        	T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
-        	fxi += dx*fpair;
-        	fyi += dy*fpair;
-        	fzi += dz*fpair;
-        	if(j<N_local) {
-        	  f_a(j,0) -= dx*fpair/intensity(type_i,type_j);
-        	  f_a(j,1) -= dy*fpair/intensity(type_i,type_j);
-        	  f_a(j,2) -= dz*fpair/intensity(type_i,type_j);
-        	}
+          fpair += (r6inv * (rnd_lj1(type_i,type_j)*r6inv
+                    - rnd_lj2(type_i,type_j))) * r2inv/intensity(type_i,type_j);
+        }
+				fxi += dx*fpair;
+				fyi += dy*fpair;
+				fzi += dz*fpair;
+				if(j<N_local) {
+					f_a(j,0) -= dx*fpair;
+					f_a(j,1) -= dy*fpair;
+					f_a(j,2) -= dz*fpair;
 				}
       }
     }
-    f_a(i,0) += fxi/intensity(type_i,type_j);
-    f_a(i,1) += fyi/intensity(type_i,type_j);
-    f_a(i,2) += fzi/intensity(type_i,type_j);
+    f_a(i,0) += fxi;
+    f_a(i,1) += fyi;
+    f_a(i,2) += fzi;
 
   }
 

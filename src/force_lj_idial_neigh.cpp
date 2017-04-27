@@ -14,8 +14,7 @@ void ForceLJIDialNeigh::init_coeff(int nargs, char** args) {
   double eps = atof(args[3]);
   double sigma = atof(args[4]);
   double cut = atof(args[5]);
-  nrepeat = atoi(args[6]);
-  int factor = atoi(args[7]); 
+  int nrepeat = atoi(args[6]);
 
   t_fparams::HostMirror h_lj1 = Kokkos::create_mirror_view(lj1);
   t_fparams::HostMirror h_lj2 = Kokkos::create_mirror_view(lj2);
@@ -33,7 +32,7 @@ void ForceLJIDialNeigh::init_coeff(int nargs, char** args) {
   h_cutsq(t1,t2) = cut*cut;
   h_cutsq(t2,t1) = cut*cut;
   h_intensity(t1,t2) = nrepeat;
-  h_intensity(t2,t1) = nrepeat*factor;
+  h_intensity(t2,t1) = nrepeat;
 
   Kokkos::deep_copy(lj1,h_lj1);
   Kokkos::deep_copy(lj2,h_lj2);
@@ -76,5 +75,5 @@ void ForceLJIDialNeigh::compute(System* system, Binning* binning, Neighbor* neig
   step++;
 }
 
-const char* ForceLJIDialNeigh::name() { return half_neigh?"ForceLJNeighHalf":"ForceLJNeighFull"; }
+const char* ForceLJIDialNeigh::name() { return half_neigh?"ForceLJIDialNeighHalf":"ForceLJIDialNeighFull"; }
 
