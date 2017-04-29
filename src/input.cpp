@@ -268,6 +268,15 @@ void Input::check_lammps_command(int line) {
       if(system->do_print)
         printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
     }
+    if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
+      known = true;
+      force_type = FORCE_LJ_IDIAL;
+      force_cutoff = atof(input_data.words[line][2]);
+      force_line = line;
+    } else {
+      if(system->do_print)
+        printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
+    }
   }
   if(strcmp(input_data.words[line][0],"pair_coeff")==0) {
     known = true;
