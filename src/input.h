@@ -95,7 +95,9 @@ class LAMMPS_RandomVelocityGeom {
 
 
 class Input {
-public:
+ private:
+  bool timestepflag; // input timestep?  
+ public:
   System* system;
   
   char* input_file;

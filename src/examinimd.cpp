@@ -1,5 +1,7 @@
 #include <examinimd.h>
 #include <property_temperature.h>
+#include <property_kine.h>
+#include <property_pote.h>
 
 ExaMiniMD::ExaMiniMD() {
   // First we need to create the System data structures
@@ -95,11 +97,15 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 void ExaMiniMD::run(int nsteps) {
   T_F_FLOAT neigh_cutoff = input->force_cutoff + input->neighbor_skin;
   Temperature temp(comm);
+  PotE pote(comm);
+  KinE kine(comm);
   double T = temp.compute(system);
+  double PE = pote.compute(system,binning,neighbor,force)/system->N;
+  double KE = kine.compute(system)/system->N;
   if(system->do_print) {
     printf("\n");
-    printf("#Timestep Temperature Time Atomsteps/s\n");
-    printf("%i %lf %lf %e\n",0,T,0.0,0.0);
+    printf("#Timestep Temperature PotE ETot Time Atomsteps/s\n");
+    printf("%i %lf %lf %lf %lf %e\n",0,T,PE,PE+KE,0.0,0.0);
   }
 
   double force_time = 0;
@@ -166,9 +172,11 @@ void ExaMiniMD::run(int nsteps) {
     // On output steps print output
     if(step%input->thermo_rate==0) {
       double T = temp.compute(system);
+      double PE = pote.compute(system,binning,neighbor,force)/system->N;
+      double KE = kine.compute(system)/system->N;
       if(system->do_print) {
         double time = timer.seconds();
-        printf("%i %lf %lf %e\n",step, T, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
+        printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
         last_time = time;
       }
     }
@@ -177,6 +185,8 @@ void ExaMiniMD::run(int nsteps) {
 
   double time = timer.seconds();
   T = temp.compute(system);
+  PE = pote.compute(system,binning,neighbor,force)/system->N;
+  KE = kine.compute(system)/system->N;
 
   if(system->do_print) {
     printf("\n");

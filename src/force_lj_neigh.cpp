@@ -54,10 +54,13 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   f_a = system->f;
   type = system->type;
   id = system->id;
+  T_V_FLOAT PE;
+  T_INT pe_flag = 1;
+  
   if(half_neigh)
-    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
+      Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
   else
-    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_full_neigh(0, system->N_local), *this);
+      Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_full_neigh(0, system->N_local), *this);
   Kokkos::fence();
 
   // Reset internal data handles so we don't keep a reference count
@@ -66,6 +69,37 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   f = t_f();
   neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();*/
   step++;
+}
+
+void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_, T_V_FLOAT& PE) {
+  // Set internal data handles
+  if(neighbor_->neigh_type == NEIGH_CSR) {
+    NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
+    neigh_list = neighbor->get_neigh_list();
+  } else if(neighbor_->neigh_type == NEIGH_CSR_MAPCONSTR) {
+    NeighborCSRMapConstr<t_neigh_mem_space>* neighbor = (NeighborCSRMapConstr<t_neigh_mem_space>*) neighbor_;
+    neigh_list = neighbor->get_neigh_list();
+  }
+
+  N_local = system->N_local;
+  x = system->x;
+  f = system->f;
+  f_a = system->f;
+  type = system->type;
+  id = system->id;
+  
+  if(half_neigh)
+      Kokkos::parallel_reduce("ForceLJNeigh::computer", t_policy_half_neigh_pe(0, system->N_local), *this, PE);
+  else
+      Kokkos::parallel_reduce("ForceLJNeigh::computer", t_policy_full_neigh_pe(0, system->N_local), *this, PE);
+
+  Kokkos::fence();
+
+  // Reset internal data handles so we don't keep a reference count
+  /*x = t_x();
+  type = t_type();
+  f = t_f();
+  neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();*/
 }
 
 const char* ForceLJNeigh::name() { return half_neigh?"ForceLJNeighHalf":"ForceLJNeighFull"; }

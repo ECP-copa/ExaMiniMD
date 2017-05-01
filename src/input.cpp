@@ -167,15 +167,16 @@ void Input::read_lammps_file(const char* filename) {
     printf("#=========================================================\n");
     printf("\n");
   }
+  timestepflag = false;
   for(int l = 0; l<input_data.nlines; l++)
     check_lammps_command(l);
 }
 
 void Input::check_lammps_command(int line) {
   bool known = false;
-
+  
   if(input_data.words[line][0][0]==0) { known = true; }
-  if(strcmp(input_data.words[line][0],"#")==0) { known = true; }
+  if(strstr(input_data.words[line][0],"#")) { known = true; }
   if(strcmp(input_data.words[line][0],"variable")==0) {
     if(system->do_print)
       printf("LAMMPS-Command: 'variable' keyword is not supported in ExaMiniMD\n");
@@ -187,17 +188,19 @@ void Input::check_lammps_command(int line) {
       system->boltz = 0.0019872067;
       //hplanck = 95.306976368;
       system->mvv2e = 48.88821291 * 48.88821291;
-      system->dt = 1.0;
+      if (!timestepflag)
+        system->dt = 1.0;
     } else if(strcmp(input_data.words[line][1],"lj")==0) {
       known = true;
       units = UNITS_LJ;
       system->boltz = 1.0;
       //hplanck = 0.18292026;
       system->mvv2e = 1.0;
-      system->dt = 0.005;
+      if (!timestepflag)
+        system->dt = 0.005;
     } else {
       if(system->do_print)
-        printf("LAMMPS-Command: 'units' command only supports 'real' in ExaMiniMD\n");
+        printf("LAMMPS-Command: 'units' command only supports 'real' and 'lj' in ExaMiniMD\n");
     }
   }
   if(strcmp(input_data.words[line][0],"atom_style")==0) {
@@ -219,7 +222,7 @@ void Input::check_lammps_command(int line) {
       lattice_constant = std::pow((4.0 / atof(input_data.words[line][2])), (1.0 / 3.0));
     } else {
       if(system->do_print)
-        printf("LAMMPS-Command: 'lattice' command only supports 'sc' in ExaMiniMD\n");
+        printf("LAMMPS-Command: 'lattice' command only supports 'sc' and 'fcc' in ExaMiniMD\n");
     }
   }
   if(strcmp(input_data.words[line][0],"region")==0) {
@@ -264,18 +267,14 @@ void Input::check_lammps_command(int line) {
       force_type = FORCE_LJ;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } else {
-      if(system->do_print)
-        printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
-    }
-    if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
+    } else if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
       known = true;
       force_type = FORCE_LJ_IDIAL;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
     } else {
       if(system->do_print)
-        printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
+        printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut' and 'lj/cut/idial' in ExaMiniMD\n");
     }
   }
   if(strcmp(input_data.words[line][0],"pair_coeff")==0) {
@@ -324,6 +323,11 @@ void Input::check_lammps_command(int line) {
   if(strcmp(input_data.words[line][0],"thermo")==0) {
     known = true;
     thermo_rate = atoi(input_data.words[line][1]);
+  }
+  if(strcmp(input_data.words[line][0],"timestep")==0) {
+    known = true;
+    system->dt = atof(input_data.words[line][1]);
+    timestepflag = true;
   }
   if(!known && system->do_print)
     printf("ERROR: unknown keyword\n");
