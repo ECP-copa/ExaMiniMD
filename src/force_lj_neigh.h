@@ -59,7 +59,7 @@ public:
   void init_coeff(int nargs, char** args);
 
   void compute(System* system, Binning* binning, Neighbor* neighbor );
-  void compute(System* system, Binning* binning, Neighbor* neighbor, T_V_FLOAT& PE);
+  T_F_FLOAT compute_energy(System* system, Binning* binning, Neighbor* neighbor);
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagFullNeigh, const T_INT& i) const {
@@ -148,20 +148,16 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagFullNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+  void operator() (TagFullNeighPE, const T_INT& i, T_F_FLOAT& PE) const {
     const T_F_FLOAT x_i = x(i,0);
     const T_F_FLOAT y_i = x(i,1);
     const T_F_FLOAT z_i = x(i,2);
     const int type_i = type(i);
-    const bool shift_flag = false;
+    const bool shift_flag = true;
     
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
 
     const int num_neighs = neighs_i.get_num_neighs();
-
-    T_F_FLOAT fxi = 0.0;
-    T_F_FLOAT fyi = 0.0;
-    T_F_FLOAT fzi = 0.0;
 
     for(int jj = 0; jj < num_neighs; jj++) {
       T_INT j = neighs_i(jj);
@@ -176,29 +172,19 @@ public:
 
         T_F_FLOAT r2inv = 1.0/rsq;
         T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        /* T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv; */
-        PE += 0.5*r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) * 0.16666666666666666666666666666666666;  // optimize later
+        PE += 0.5*r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
 
         if (shift_flag) {
           T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
           T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
-          PE -= 0.5*r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) * 0.16666666666666666666666666666666666;  // optimize later
+          PE -= 0.5*r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
         }
-        
-        /* fxi += dx*fpair; */
-        /* fyi += dy*fpair; */
-        /* fzi += dz*fpair; */
       }
     }
-
-    /* f(i,0) += fxi; */
-    /* f(i,1) += fyi; */
-    /* f(i,2) += fzi; */
-
   }
 
   KOKKOS_INLINE_FUNCTION
-    void operator() (TagHalfNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+  void operator() (TagHalfNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
     const T_F_FLOAT x_i = x(i,0);
     const T_F_FLOAT y_i = x(i,1);
     const T_F_FLOAT z_i = x(i,2);
@@ -209,10 +195,6 @@ public:
 
     const int num_neighs = neighs_i.get_num_neighs();
 
-    T_F_FLOAT fxi = 0.0;
-    T_F_FLOAT fyi = 0.0;
-    T_F_FLOAT fzi = 0.0;
-//printf("NUMNEIGHS: %i %i\n",i,num_neighs);
     for(int jj = 0; jj < num_neighs; jj++) {
       T_INT j = neighs_i(jj);
       const T_F_FLOAT dx = x_i - x(j,0);
@@ -226,28 +208,19 @@ public:
 
         T_F_FLOAT r2inv = 1.0/rsq;
         T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-        /* T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv; */
-        PE += r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) * 0.16666666666666666666666666666666666;  // optimize later
+        T_F_FLOAT fac;
+        if(j<N_local) fac = 1.0;
+        else fac = 0.5;
+
+        PE += fac * r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
 
         if (shift_flag) {
           T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
           T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
-          PE -= r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) * 0.16666666666666666666666666666666666;  // optimize later
+          PE -= fac * r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
         }
-        
-        /* fxi += dx*fpair; */
-        /* fyi += dy*fpair; */
-        /* fzi += dz*fpair; */
-        /* if(j<N_local) { */
-        /*   f_a(j,0) -= dx*fpair; */
-        /*   f_a(j,1) -= dy*fpair; */
-        /*   f_a(j,2) -= dz*fpair; */
-        /* } */
       }
     }
-    /* f_a(i,0) += fxi; */
-    /* f_a(i,1) += fyi; */
-    /* f_a(i,2) += fzi; */
 
   }
 

@@ -53,4 +53,30 @@ void ForceLJCell::compute(System* system, Binning* binning, Neighbor*) {
 
 }
 
+T_F_FLOAT ForceLJCell::compute_energy(System* system, Binning* binning, Neighbor*) {
+  x = system->x;
+  id = system->id;
+  type = system->type;
+  N_local = system->N_local;
+
+  bin_count = binning->bincount;
+  bin_offsets = binning->binoffsets;
+  permute_vector = binning->permute_vector;
+
+  nhalo = binning->nhalo;
+  nbinx = binning->nbinx;
+  nbiny = binning->nbiny;
+  nbinz = binning->nbinz;
+
+  T_INT nbins = nbinx*nbiny*nbinz;
+  T_F_FLOAT PE;
+  Kokkos::parallel_reduce("ForceLJCell::compute_energy", t_policy_pe(nbins,1,8), *this, PE);
+
+  x = t_x();
+  id = t_id();
+  type = t_type();
+
+  return PE;
+}
+
 const char* ForceLJCell::name() { return "ForceLJCellFull"; }

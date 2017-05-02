@@ -54,7 +54,7 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   f_a = system->f;
   type = system->type;
   id = system->id;
-  T_V_FLOAT PE;
+  T_F_FLOAT PE;
   T_INT pe_flag = 1;
   
   if(half_neigh)
@@ -71,7 +71,7 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   step++;
 }
 
-void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_, T_V_FLOAT& PE) {
+T_F_FLOAT ForceLJNeigh::compute_energy(System* system, Binning* binning, Neighbor* neighbor_) {
   // Set internal data handles
   if(neighbor_->neigh_type == NEIGH_CSR) {
     NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
@@ -82,24 +82,18 @@ void ForceLJNeigh::compute(System* system, Binning* binning, Neighbor* neighbor_
   }
 
   N_local = system->N_local;
-  x = system->x;
-  f = system->f;
-  f_a = system->f;
-  type = system->type;
-  id = system->id;
-  
-  if(half_neigh)
-      Kokkos::parallel_reduce("ForceLJNeigh::computer", t_policy_half_neigh_pe(0, system->N_local), *this, PE);
-  else
-      Kokkos::parallel_reduce("ForceLJNeigh::computer", t_policy_full_neigh_pe(0, system->N_local), *this, PE);
 
+  T_F_FLOAT PE;
+  if(half_neigh)
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, PE);
+  else
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, PE);
   Kokkos::fence();
 
   // Reset internal data handles so we don't keep a reference count
-  /*x = t_x();
-  type = t_type();
-  f = t_f();
-  neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();*/
+  // neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();
+
+  return PE;
 }
 
 const char* ForceLJNeigh::name() { return half_neigh?"ForceLJNeighHalf":"ForceLJNeighFull"; }
