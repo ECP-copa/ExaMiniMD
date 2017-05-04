@@ -88,6 +88,15 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
   force_iteration_type = FORCE_ITER_NEIGH_FULL;
   binning_type = BINNING_KKSORT;
   comm_exchange_rate = 20;
+
+  // set defaults
+
+  thermo_rate = 0;
+  dumpbinary_rate = 0;
+  correctness_rate = 0;
+  bool dumpbinaryflag = false;
+  bool correctnessflag = false;
+  timestepflag = false;
 }
 
 void Input::read_command_line_args(int argc, char* argv[]) {
@@ -103,6 +112,10 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("                              for force calculations (CELL_FULL, NEIGH_FULL, NEIGH_HALF)\n");
         printf("  --comm-type [TYPE]:         Specify Communication Routines implementation \n");
         printf("                              (MPI, SERIAL)\n");
+        printf("  --dumpbinary [N]:           Request that binary output files Output/output* be generated every N steps\n");
+        printf("                              (N = positive integer)\n");
+        printf("  --correctness [N}:          Request that correctness check against files Reference/output* be performed every N steps\n");
+        printf("                              (N = positive integer)\n");
       }
       continue;
     }
@@ -129,6 +142,18 @@ void Input::read_command_line_args(int argc, char* argv[]) {
      #include<modules_neighbor.h>
     }
 
+    // Dump Binary
+    if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
+      dumpbinary_rate = atoi(argv[i+1]);
+      dumpbinaryflag = true;
+    }
+    
+    // Correctness Check
+    if( (strcmp(argv[i], "--correctness") == 0) ) {
+      correctness_rate = atoi(argv[i+1]);
+      correctnessflag = true;
+    }
+    
   }
 #undef MODULES_OPTION_CHECK
 }
@@ -167,7 +192,6 @@ void Input::read_lammps_file(const char* filename) {
     printf("#=========================================================\n");
     printf("\n");
   }
-  timestepflag = false;
   for(int l = 0; l<input_data.nlines; l++)
     check_lammps_command(l);
 }

@@ -1,9 +1,9 @@
 #Kokkos root path
-KOKKOS_PATH = ${HOME}/kokkos
+KOKKOS_PATH = ${KOKKOS}/kokkos
 
 #Backend and architecture configuration
 KOKKOS_DEVICES=OpenMP
-KOKKOS_ARCH = "SNB,Kepler35"
+KOKKOS_ARCH = ""
 
 #MPI On or off (1/0)
 MPI = 1

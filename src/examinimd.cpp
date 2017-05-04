@@ -171,15 +171,21 @@ void ExaMiniMD::run(int nsteps) {
 
     // On output steps print output
     if(step%input->thermo_rate==0) {
-      double T = temp.compute(system);
-      double PE = pote.compute(system,binning,neighbor,force)/system->N;
-      double KE = kine.compute(system)/system->N;
+      T = temp.compute(system);
+      PE = pote.compute(system,binning,neighbor,force)/system->N;
+      KE = kine.compute(system)/system->N;
       if(system->do_print) {
         double time = timer.seconds();
         printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
         last_time = time;
       }
     }
+
+    if (input->dumpbinaryflag)
+      dump_binary(step);
+    if (input->correctnessflag)
+      check_correctness(step);
+
     other_time += other_timer.seconds();
   }
 
@@ -197,7 +203,108 @@ void ExaMiniMD::run(int nsteps) {
   }
 }
 
-void ExaMiniMD::check_correctness() {}
+void ExaMiniMD::dump_binary(int step) {
+  // On dump steps print configuration
+
+  if(step%input->dumpbinary_rate) return;
+  
+  FILE* fp;
+  T_INT n = system->N;
+  
+  if(system->do_print) {
+    char* filename = new char[256];
+    sprintf(filename,"%s%010d","Output/output",step);
+    fp = fopen(filename,"wb");
+    if (fp == NULL) {
+      char str[128];
+      printf("Cannot open dump file %s \n",filename);
+    }
+  }
+    
+  if(system->do_print) {
+    fwrite(&n,sizeof(T_INT),1,fp);
+    fwrite(&(system->id(0)),sizeof(T_INT),n,fp);
+    fwrite(&(system->type(0)),sizeof(T_INT),n,fp);
+    fwrite(&(system->x(0,0)),sizeof(T_X_FLOAT),3*n,fp);
+    fwrite(&(system->v(0,0)),sizeof(T_V_FLOAT),3*n,fp);
+    fwrite(&(system->q(0)),sizeof(T_V_FLOAT),n,fp);
+  }
+    
+  if(system->do_print) {
+    fclose(fp);
+  }
+}
+
+void ExaMiniMD::check_correctness(int step) {
+
+  if(step%input->correctness_rate) return;
+
+  FILE* fp;
+  T_INT n = system->N;
+  T_INT ntmp;
+  
+  if(system->do_print) {
+    char* filename = new char[256];
+    sprintf(filename,"%s%010d","Reference/output",step);
+    fp = fopen(filename,"rb");
+    if (fp == NULL) {
+      char str[128];
+      printf("Cannot open input file %s \n",filename);
+    }
+  }
+
+  if(system->do_print) {
+    fread(&ntmp,sizeof(T_INT),1,fp);
+    if (ntmp != n) 
+      printf("Mismatch in current and reference atom counts\n");
+    printf("Successfully read atom count from reference %d %d\n",n,ntmp);
+
+    t_x xref;         // Reference Positions
+    t_id   typeref;   // Reference Particle Types
+    t_id   idref;     // Reference Particle IDs
+    Kokkos::resize(xref,n);
+    Kokkos::resize(typeref,n);
+    Kokkos::resize(idref,n);
+
+    fread(&(idref(0)),sizeof(T_INT),n,fp);
+    fread(&(typeref(0)),sizeof(T_INT),n,fp); 
+    fread(&(xref(0,0)),sizeof(T_X_FLOAT),3*n,fp);
+
+    double sumdelrsq = 0.0;
+    for (int i = 0; i < n; i++) {
+      int ii = -1;
+      if (system->id(i) != idref(i)) 
+        for (int j = 0; j < n; j++) {
+          if (system->id(j) == idref(i)) {
+            ii = j;
+            break;
+          }
+        }
+      else
+        ii = i;
+
+      if (ii == -1)
+        printf("Unable to find current id matchinf reference id %d \n",idref(i));
+      else {
+        double delx = system->x(ii,0)-xref(i,0);
+        double dely = system->x(ii,1)-xref(i,1);
+        double delz = system->x(ii,2)-xref(i,2);
+        double delrsq = delx*delx + dely*dely + delz*delz;
+        // if (delrsq > 0.0) 
+        //   printf("delrsq = %g %g %g %g\n",delrsq,delx,dely,delz);
+        // printf("%d %d %g %g %g\n",system->id(ii),system->type(ii),system->x(ii,0),system->x(ii,1),system->x(ii,2));
+        // printf("%d %d %g %g %g\n",idref(i),typeref(i),xref(i,0),xref(i,1),xref(i,2));
+        sumdelrsq += delrsq;
+      }
+    }
+    printf("sumdelrsq = %g \n",sumdelrsq);
+  }
+
+  if(system->do_print) {
+    fclose(fp);
+  }
+
+}
 
 void ExaMiniMD::print_performance() {}
 

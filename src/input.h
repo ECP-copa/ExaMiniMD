@@ -131,7 +131,9 @@ class Input {
   T_F_FLOAT neighbor_skin; 
   int neighbor_type;
   
-  int thermo_rate;
+  int thermo_rate, dumpbinary_rate, correctness_rate;
+  bool dumpbinaryflag;
+  bool correctnessflag;
  
 public:
   Input(System* s);
