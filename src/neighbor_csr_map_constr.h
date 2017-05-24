@@ -73,7 +73,7 @@ public:
     const T_INT i_offset = bin_offsets(bx,by,bz);
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team,0,bin_count(bx,by,bz)), [&] (const int bi) {
       const T_INT i = permute_vector(i_offset + bi);
-      if(i>N_local) return;
+      if(i>=N_local) return;
       const T_F_FLOAT x_i = x(i,0);
       const T_F_FLOAT y_i = x(i,1);
       const T_F_FLOAT z_i = x(i,2);
@@ -114,7 +114,7 @@ public:
     const T_INT i_offset = bin_offsets(bx,by,bz);
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team,0,bin_count(bx,by,bz)), [&] (const int bi) {
       const T_INT i = permute_vector(i_offset + bi);
-      if(i>N_local) return;
+      if(i>=N_local) return;
       const T_F_FLOAT x_i = x(i,0);
       const T_F_FLOAT y_i = x(i,1);
       const T_F_FLOAT z_i = x(i,2);
