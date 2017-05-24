@@ -94,8 +94,8 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
   thermo_rate = 0;
   dumpbinary_rate = 0;
   correctness_rate = 0;
-  bool dumpbinaryflag = false;
-  bool correctnessflag = false;
+  dumpbinaryflag = false;
+  correctnessflag = false;
   timestepflag = false;
 }
 
