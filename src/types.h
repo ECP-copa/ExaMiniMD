@@ -22,6 +22,10 @@ enum {NEIGH_NONE, NEIGH_CSR, NEIGH_CSR_MAPCONSTR};
 // Input File Type
 enum {INPUT_LAMMPS};
 
+// Math Macros
+
+#define MIN(A,B) ((A) < (B) ? (A) : (B))
+#define MAX(A,B) ((A) > (B) ? (A) : (B))
 
 // Define Scalar Types
 #ifndef T_INT

@@ -83,7 +83,18 @@ Currently ExaMiniMD can only get input from LAMMPS input files with a
 restricted set of LAMMPS commands. An example input file is provided in the
 input directory. Assuming you build in the src directory run:
 
+To run 2 MPI tasks, with 12 threads per task:
 ```
 mpirun -np 2 -bind-to socket ./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-threads=12
+```
+
+To run in serial, writing binary output every timestep to ReferenceDir
+```
+./ExaMiniMD -il ../input/in.lj --kokkos-threads=1 --binarydump 1 ReferenceDir 
+```
+
+To run in serial with 2 threads, checking correctness every timestep against ReferenceDir
+```
+./ExaMiniMD -il ../input/in.lj --kokkos-threads=2 --correctness 1 ReferenceDir correctness.dat 
 ```
 

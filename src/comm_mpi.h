@@ -80,6 +80,10 @@ public:
   void scan_int(T_INT* vals, T_INT count);
   void reduce_int(T_INT* vals, T_INT count);
   void reduce_float(T_FLOAT* vals, T_INT count);
+  void reduce_max_int(T_INT* vals, T_INT count);
+  void reduce_max_float(T_FLOAT* vals, T_INT count);
+  void reduce_min_int(T_INT* vals, T_INT count);
+  void reduce_min_float(T_FLOAT* vals, T_INT count);
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const TagExchangeSelf, 
@@ -410,6 +414,7 @@ public:
   const char* name();
   int process_rank();
   int num_processes();
+  void error(const char *);
 };
 
 #endif
