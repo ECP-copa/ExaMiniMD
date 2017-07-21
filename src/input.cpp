@@ -50,6 +50,12 @@ void ItemizedFile::print_line(int i) {
   std::cout << std::endl;
 }
 
+int ItemizedFile::words_in_line(int i){
+  int count = 0;
+  for(int j=0; j<words_per_line; j++) 
+    if(words[i][j][0]) count++;
+  return count;
+}
 void ItemizedFile::print() {
   for(int l=0; l<nlines; l++)
     print_line(l);
@@ -264,25 +270,30 @@ void Input::check_lammps_command(int line) {
       force_type = FORCE_LJ;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } else {
-      if(system->do_print)
-        printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
     }
     if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
       known = true;
       force_type = FORCE_LJ_IDIAL;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } else {
-      if(system->do_print)
-        printf("LAMMPS-Command: 'fix' command only supports 'nve' style in ExaMiniMD\n");
     }
+    if(strcmp(input_data.words[line][1],"snap")==0) {
+      known = true;
+      force_type = FORCE_SNAP;
+      //force_cutoff = atof(input_data.words[line][2]);
+      force_line = line;
+    }
+    if(system->do_print && !known)
+      printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut', 'lj/cut/idial', and 'snap' style in ExaMiniMD\n");
   }
   if(strcmp(input_data.words[line][0],"pair_coeff")==0) {
     known = true;
     int n_coeff_lines = force_coeff_lines.dimension_0();
     Kokkos::resize(force_coeff_lines,n_coeff_lines+1);
     force_coeff_lines( n_coeff_lines) = line;
+    printf("Line: %i %i %i\n",line,n_coeff_lines,input_data.words_in_line(line));
+    input_data.print_line(line);
+    n_coeff_lines++;
   }
   if(strcmp(input_data.words[line][0],"velocity")==0) {
     known = true;
