@@ -39,29 +39,23 @@ public:
   SNA(double, int, int, int, double, int, int);
 
   ~SNA();
-  void build_indexlist();
-  void init();
-  double memory_usage();
+  void build_indexlist(); // SNA()
+  void init();            //
 
   int ncoeff;
 
   // functions for bispectrum coefficients
 
-  void compute_ui(int);
-  void compute_ui_omp(int, int);
-  void compute_zi();
-  void compute_zi_omp(int);
-  void compute_bi();
-  void copy_bi2bvec();
+  void compute_ui(int); // ForceSNAP
+  void compute_zi();    // ForceSNAP
 
   // functions for derivatives
 
-  void compute_duidrj(double*, double, double);
-  void compute_dbidrj();
-  void compute_dbidrj_nonsymm();
-  void copy_dbi2dbvec();
-  double compute_sfac(double, double);
-  double compute_dsfac(double, double);
+  void compute_duidrj(double*, double, double); //ForceSNAP
+  void compute_dbidrj(); //ForceSNAP
+  void copy_dbi2dbvec(); //ForceSNAP
+  double compute_sfac(double, double); // add_uarraytot, compute_duarray
+  double compute_dsfac(double, double); // compute_duarray
 
 #ifdef TIMING_INFO
   double* timers;
@@ -109,27 +103,21 @@ private:
   t_sna_4d dbarray;
 
   static const int nmaxfactorial = 167;
-  static const double nfac_table[];
   double factorial(int);
 
-  void create_twojmax_arrays();
-  void destroy_twojmax_arrays();
-  void init_clebsch_gordan();
-  void init_rootpqarray();
-  void jtostr(char*, int);
-  void mtostr(char*, int, int);
-  void print_clebsch_gordan(FILE*);
-  void zero_uarraytot();
-  void addself_uarraytot(double);
-  void add_uarraytot(double, double, double);
-  void add_uarraytot_omp(double, double, double);
+  void create_twojmax_arrays(); // SNA()
+  void destroy_twojmax_arrays(); // ~SNA()
+  void init_clebsch_gordan(); // init()
+  void init_rootpqarray();    // init()
+  void zero_uarraytot();      // compute_ui
+  void addself_uarraytot(double); // compute_ui
+  void add_uarraytot(double, double, double); // compute_ui
+
   void compute_uarray(double, double, double,
-                      double, double);
-  void compute_uarray_omp(double, double, double,
-                          double, double, int);
-  double deltacg(int, int, int);
-  int compute_ncoeff();
-  void compute_duarray(double, double, double,
+                      double, double); // compute_ui
+  double deltacg(int, int, int);  // init_clebsch_gordan
+  int compute_ncoeff();           // SNA()
+  void compute_duarray(double, double, double, // compute_duidrj
                        double, double, double, double, double);
 
   // if number of atoms are small use per atom arrays

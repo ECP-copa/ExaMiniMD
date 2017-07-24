@@ -42,6 +42,6 @@ neigh_modify once no every 1 delay 0 check yes
 
 velocity all create 300.0 4928459 loop geom
 fix 1 all nve
-run            1000
+run            100
 
 

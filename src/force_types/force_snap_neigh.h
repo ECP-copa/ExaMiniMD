@@ -35,14 +35,6 @@ class ForceSNAP : public Force {
 public:
   ForceSNAP(char** args, System* system, bool half_neigh_);
   ~ForceSNAP();
-  //void compute(int, int);
-  //void compute_regular(int, int);
-  //void compute_optimized(int, int);
-  //void settings(int, char **);
-  //void coeff(int, char **);
-  //void init_style();
-  //double init_one(int, int);
-  //double memory_usage();
   
   void init_coeff(int nargs, char** args);
   void compute(System* system, Binning* binning, Neighbor* neighbor );
@@ -65,12 +57,12 @@ protected:
   int nthreads;
   void allocate();
   void read_files(char *, char *);
-  inline int equal(double* x,double* y);
+  /*inline int equal(double* x,double* y);
   inline double dist2(double* x,double* y);
   double extra_cutoff();
   void load_balance();
   void set_sna_to_shared(int snaid,int i);
-  void build_per_atom_arrays();
+  void build_per_atom_arrays();*/
 
   int schedule_user;
   double schedule_time_guided;
@@ -130,64 +122,3 @@ protected:
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Communication cutoff too small for SNAP micro load balancing
-
-This can happen if you change the neighbor skin after your pair_style
-command or if your box dimensions grow during a run. You can set the
-cutoff explicitly via the comm_modify cutoff command.
-
-E: Illegal ... command
-
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
-
-E: Must set number of threads via package omp command
-
-Because you are using the USER-OMP package, set the number of threads
-via its settings, not by the pair_style snap nthreads setting.
-
-W: Communication cutoff is too small for SNAP micro load balancing, increased to %lf
-
-Self-explanatory.
-
-E: Incorrect args for pair coefficients
-
-Self-explanatory.  Check the input script or data file.
-
-E: Incorrect SNAP parameter file
-
-The file cannot be parsed correctly, check its internal syntax.
-
-E: Force style SNAP requires newton pair on
-
-See the newton command.  This is a restriction to use the SNAP
-potential.
-
-E: All pair coeffs are not set
-
-All pair coefficients must be set in the data file or by the
-pair_coeff command before running a simulation.
-
-E: Cannot open SNAP coefficient file %s
-
-The specified SNAP coefficient file cannot be opened.  Check that the
-path and name are correct.
-
-E: Incorrect format in SNAP coefficient file
-
-Incorrect number of words per line in the coefficient file.
-
-E: Cannot open SNAP parameter file %s
-
-The specified SNAP parameter file cannot be opened.  Check that the
-path and name are correct.
-
-E: Incorrect format in SNAP parameter file
-
-Incorrect number of words per line in the parameter file.
-
-*/
