@@ -4,7 +4,7 @@
 
 // Module Types etc
 // Units to be used
-enum {UNITS_REAL,UNITS_LJ};
+enum {UNITS_REAL,UNITS_LJ,UNITS_METAL};
 // Lattice Type
 enum {LATTICE_SC,LATTICE_FCC};
 // Integrator Type

@@ -43,8 +43,8 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     exit(0);
   }
   for(int line = 0; line < input->force_coeff_lines.dimension_0(); line++) {
-    input->input_data.print_line(input->force_coeff_lines(line));
-    printf("init_coeff: %i %i\n",line,input->input_data.words_in_line(input->force_coeff_lines(line)));
+    //input->input_data.print_line(input->force_coeff_lines(line));
+    //printf("init_coeff: %i %i\n",line,input->input_data.words_in_line(input->force_coeff_lines(line)));
     force->init_coeff(input->input_data.words_in_line(input->force_coeff_lines(line)),
                       input->input_data.words[input->force_coeff_lines(line)]);
   }
@@ -92,6 +92,9 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Compute initial forces
   force->compute(system,binning,neighbor);
+
+  // Reverse Communicate Force Update on Halo
+  comm->update_force();
 
 }
 
@@ -162,6 +165,9 @@ void ExaMiniMD::run(int nsteps) {
 
     // This is where Bonds, Angles and KSpace should go eventually 
     
+    // Reverse Communicate Force Update on Halo
+    comm->update_force();
+
     // Do second part of the verlet time step integration 
     other_timer.reset();
     integrator->final_integrate();

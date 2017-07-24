@@ -24,12 +24,12 @@ mass 1 180.88
 
 # choose potential
 
-include Ta06A.snap
+#include Ta06A.snap
 #pair_style hybrid/overlay &
 #zbl ${zblcutinner} ${zblcutouter} &
 pair_style snap
 # pair_coeff 1 1 zbl ${zblz} ${zblz}
-pair_coeff * * snap Ta06A.snapcoeff Ta Ta06A.snapparam Ta
+pair_coeff * * Ta06A.snapcoeff Ta Ta06A.snapparam Ta
 
 # Setup output
 

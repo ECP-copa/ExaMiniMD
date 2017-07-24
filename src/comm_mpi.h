@@ -68,6 +68,8 @@ public:
   struct TagHaloUpdatePack {};
   struct TagHaloUpdateUnpack {};
 
+  struct TagHaloForceSelf {};
+
   struct TagPermuteIndexList {};
 
   CommMPI(System* s, T_X_FLOAT comm_depth_);
@@ -77,6 +79,7 @@ public:
   void exchange();
   void exchange_halo();
   void update_halo();
+  void update_force();
   void scan_int(T_INT* vals, T_INT count);
   void reduce_int(T_INT* vals, T_INT count);
   void reduce_float(T_FLOAT* vals, T_INT count);
@@ -407,6 +410,21 @@ public:
     s.x(N_local + N_ghost + ii, 1) = unpack_buffer_update(ii, 1);
     s.x(N_local + N_ghost + ii, 2) = unpack_buffer_update(ii, 2);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForceSelf,
+                   const T_INT& ii) const {
+
+    const T_INT i = pack_indicies(ii);
+    T_F_FLOAT fx_i = s.f(N_local + N_ghost + ii,0);
+    T_F_FLOAT fy_i = s.f(N_local + N_ghost + ii,1);
+    T_F_FLOAT fz_i = s.f(N_local + N_ghost + ii,2);
+
+    s.f(i, 0) += fx_i;
+    s.f(i, 1) += fy_i;
+    s.f(i, 2) += fz_i;
+  }
+
   const char* name();
   int process_rank();
   int num_processes();

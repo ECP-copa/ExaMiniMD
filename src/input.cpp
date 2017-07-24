@@ -187,7 +187,14 @@ void Input::check_lammps_command(int line) {
       printf("LAMMPS-Command: 'variable' keyword is not supported in ExaMiniMD\n");
   }
   if(strcmp(input_data.words[line][0],"units")==0) {
-    if(strcmp(input_data.words[line][1],"real")==0) {
+    if(strcmp(input_data.words[line][1],"metal")==0) {
+      known = true;
+      units = UNITS_METAL;
+      system->boltz = 8.617343e-5;
+      //hplanck = 95.306976368;
+      system->mvv2e = 1.0364269e-4;
+      system->dt = 0.001;
+    } else if(strcmp(input_data.words[line][1],"real")==0) {
       known = true;
       units = UNITS_REAL;
       system->boltz = 0.0019872067;
@@ -280,7 +287,7 @@ void Input::check_lammps_command(int line) {
     if(strcmp(input_data.words[line][1],"snap")==0) {
       known = true;
       force_type = FORCE_SNAP;
-      //force_cutoff = atof(input_data.words[line][2]);
+      force_cutoff = 4.73442;// atof(input_data.words[line][2]);
       force_line = line;
     }
     if(system->do_print && !known)
@@ -291,8 +298,6 @@ void Input::check_lammps_command(int line) {
     int n_coeff_lines = force_coeff_lines.dimension_0();
     Kokkos::resize(force_coeff_lines,n_coeff_lines+1);
     force_coeff_lines( n_coeff_lines) = line;
-    printf("Line: %i %i %i\n",line,n_coeff_lines,input_data.words_in_line(line));
-    input_data.print_line(line);
     n_coeff_lines++;
   }
   if(strcmp(input_data.words[line][0],"velocity")==0) {
@@ -336,8 +341,13 @@ void Input::check_lammps_command(int line) {
     known = true;
     thermo_rate = atoi(input_data.words[line][1]);
   }
-  if(!known && system->do_print)
+  if(input_data.words[line][0][0]=='#') {
+    known = true;
+  }
+  if(!known && system->do_print) {
     printf("ERROR: unknown keyword\n");
+    input_data.print_line(line);
+  }
 }
 
 void Input::create_lattice(Comm* comm) {

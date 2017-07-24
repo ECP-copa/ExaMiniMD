@@ -20,6 +20,7 @@
 
 #include <complex>
 #include <ctime>
+#include <Kokkos_Core.hpp>
 
 struct SNA_LOOPINDICES {
   int j1, j2, j;
@@ -28,6 +29,13 @@ struct SNA_LOOPINDICES {
 class SNA {
 
 public:
+  typedef Kokkos::View<int*> t_sna_1i;
+  typedef Kokkos::View<double*> t_sna_1d;
+  typedef Kokkos::View<double**> t_sna_2d;
+  typedef Kokkos::View<double***> t_sna_3d;
+  typedef Kokkos::View<double***[3]> t_sna_4d;
+  typedef Kokkos::View<double**[3]> t_sna_3d3;
+  typedef Kokkos::View<double*****> t_sna_5d;
   SNA(double, int, int, int, double, int, int);
 
   ~SNA();
@@ -64,21 +72,24 @@ public:
 
   //per sna class instance for OMP use
 
-  double* bvec, ** dbvec;
-  double** rij;
-  int* inside;
-  double* wj;
-  double* rcutij;
+  //double* bvec, ** dbvec;
+  Kokkos::View<double*> bvec;
+  Kokkos::View<double*[3]> dbvec;
+
+  t_sna_2d rij;
+  t_sna_1i inside;
+  t_sna_1d wj;
+  t_sna_1d rcutij;
   int nmax;
 
   void grow_rij(int);
 
   int twojmax, diagonalstyle;
-  double*** uarraytot_r, *** uarraytot_i;
-  double***** zarray_r, ***** zarray_i;
-  double*** uarraytot_r_b, *** uarraytot_i_b;
-  double***** zarray_r_b, ***** zarray_i_b;
-  double*** uarray_r, *** uarray_i;
+  t_sna_3d uarraytot_r, uarraytot_i;
+  t_sna_5d zarray_r, zarray_i;
+  t_sna_3d uarraytot_r_b, uarraytot_i_b;
+  t_sna_5d zarray_r_b, zarray_i_b;
+  t_sna_3d uarray_r, uarray_i;
 
 private:
   double rmin0, rfac0;
@@ -88,14 +99,14 @@ private:
   int idxj_max;
   // data for bispectrum coefficients
 
-  double***** cgarray;
-  double** rootpqarray;
-  double*** barray;
+  t_sna_5d cgarray;
+  t_sna_2d rootpqarray;
+  t_sna_3d barray;
 
   // derivatives of data
 
-  double**** duarray_r, **** duarray_i;
-  double**** dbarray;
+  t_sna_4d duarray_r, duarray_i;
+  t_sna_4d dbarray;
 
   static const int nmaxfactorial = 167;
   static const double nfac_table[];

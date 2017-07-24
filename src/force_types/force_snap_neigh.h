@@ -13,9 +13,6 @@
 #ifdef MODULES_OPTION_CHECK
       if( (strcmp(argv[i+1], "NEIGH_FULL") == 0) )
         force_iteration_type = FORCE_ITER_NEIGH_FULL;
-      if( (strcmp(argv[i+1], "NEIGH_HALF") == 0) ) {
-        force_iteration_type = FORCE_ITER_NEIGH_HALF;
-      }
 #endif
 #ifdef MODULES_INSTANTIATION
     else if ((input->force_type == FORCE_SNAP) && (input->force_iteration_type == FORCE_ITER_NEIGH_FULL)) {
@@ -50,8 +47,14 @@ public:
   void init_coeff(int nargs, char** args);
   void compute(System* system, Binning* binning, Neighbor* neighbor );
 
+  const char* name() {return "ForceSNAP";}
+
 protected:
   System* system;
+
+  typedef NeighListCSR<t_neigh_mem_space> t_neigh_list;
+  t_neigh_list neigh_list;
+
   int ncoeff, ncoeffq, ncoeffall;
   typedef Kokkos::View<T_F_FLOAT**> t_bvec;
   t_bvec bvec;
@@ -117,6 +120,11 @@ protected:
   int twojmax, diagonalstyle, switchflag, bzeroflag, quadraticflag;
   double rcutfac, rfac0, rmin0, wj1, wj2;
   int rcutfacflag, twojmaxflag; // flags for required parameters
+  typedef Kokkos::View<T_F_FLOAT**> t_fparams;
+  t_fparams cutsq;
+  typedef Kokkos::View<const T_F_FLOAT**,
+      Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_fparams_rnd;
+  t_fparams_rnd rnd_cutsq;
 };
 
 

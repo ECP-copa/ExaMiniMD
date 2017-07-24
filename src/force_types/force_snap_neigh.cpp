@@ -28,7 +28,6 @@
 
 ForceSNAP::ForceSNAP(char** args, System* system_, bool half_neigh_):Force(args,system_,half_neigh_) 
 {
-        printf("Create SNAP\n");
   //single_enable = 0;
   //restartinfo = 0;
   //one_coeff = 1;
@@ -87,7 +86,7 @@ ForceSNAP::ForceSNAP(char** args, System* system_, bool half_neigh_):Force(args,
   // Need to set this because restart not handled by ForceHybrid
 
   sna = NULL;
-
+  cutsq = t_fparams("ForceSNAP::cutsq",system->ntypes,system->ntypes);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -141,56 +140,50 @@ ForceSNAP::~ForceSNAP()
 
 }
 
-void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor)
-{
-  /*if (use_optimized)
-    compute_optimized(eflag, vflag);
-  else
-    compute_regular(eflag, vflag);
-  */
-}
-
 /* ----------------------------------------------------------------------
    This version is a straightforward implementation
    ---------------------------------------------------------------------- */
-/*
-void ForceSNAP::compute_regular(int eflag, int vflag)
+
+void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
 {
-  int i,j,jnum,ninside;
-  double delx,dely,delz,evdwl,rsq;
+  //printf("SNAP-COMPARE: COMPUTE\n");
+
+  int eflag=0, vflag=0;
+  int ninside;
+  double evdwl,rsq;
   double fij[3];
-  int *jlist,*numneigh,**firstneigh;
   evdwl = 0.0;
 
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = vflag_fdotr = 0;
+  /*if (eflag || vflag) ev_setup(eflag,vflag);
+  else evflag = vflag_fdotr = 0;*/
 
-  double **x = atom->x;
-  double **f = atom->f;
-  int *type = atom->type;
-  int nlocal = atom->nlocal;
-  int newton_pair = force->newton_pair;
+  t_x x = system->x;
+  t_f f = system->f;
+  auto v = system->v;
+  t_type type = system->type;
+  int nlocal = system->N_local;
+  int newton_pair = 0;
   class SNA* snaptr = sna[0];
 
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
+  NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
+  neigh_list = neighbor->get_neigh_list();
 
-  for (int ii = 0; ii < list->inum; ii++) {
-    i = list->ilist[ii];
+  //printf("nlocal: %i\n",nlocal);
+  for (int i = 0; i < nlocal; i++) {
 
-    const double xtmp = x[i][0];
-    const double ytmp = x[i][1];
-    const double ztmp = x[i][2];
-    const int itype = type[i];
-    const int ielem = map[itype];
-    const double radi = radelem[ielem];
+    const double x_i = x(i,0);
+    const double y_i = x(i,1);
+    const double z_i = x(i,2);
+    const int type_i = type[i];
+    const int elem_i = map[type_i];
+    const double radi = radelem[elem_i];
+    typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
 
-    jlist = firstneigh[i];
-    jnum = numneigh[i];
+    const int num_neighs = neighs_i.get_num_neighs();
 
     // insure rij, inside, wj, and rcutij are of size jnum
-
-    snaptr->grow_rij(jnum);
+    //printf("%lf %lf %lf %i %i SNAP-COMPARE: NUMNEIGHS\n",x_i,y_i,z_i,i,num_neighs);
+    snaptr->grow_rij(num_neighs);
 
     // rij[][3] = displacements between atom I and those neighbors
     // inside = indices of neighbors of I within cutoff
@@ -199,26 +192,30 @@ void ForceSNAP::compute_regular(int eflag, int vflag)
     // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
 
     ninside = 0;
-    for (int jj = 0; jj < jnum; jj++) {
-      j = jlist[jj];
-      j &= NEIGHMASK;
-      delx = x[j][0] - xtmp;
-      dely = x[j][1] - ytmp;
-      delz = x[j][2] - ztmp;
-      rsq = delx*delx + dely*dely + delz*delz;
-      int jtype = type[j];
-      int jelem = map[jtype];
+    for (int jj = 0; jj < num_neighs; jj++) {
+      T_INT j = neighs_i(jj);
+      const T_F_FLOAT dx = x(j,0) - x_i;
+      const T_F_FLOAT dy = x(j,1) - y_i;
+      const T_F_FLOAT dz = x(j,2) - z_i;
 
-      if (rsq < cutsq[itype][jtype]&&rsq>1e-20) {
-	snaptr->rij[ninside][0] = delx;
-	snaptr->rij[ninside][1] = dely;
-	snaptr->rij[ninside][2] = delz;
-	snaptr->inside[ninside] = j;
-	snaptr->wj[ninside] = wjelem[jelem];
-	snaptr->rcutij[ninside] = (radi + radelem[jelem])*rcutfac;
-	ninside++;
+      const int type_j = type(j);
+      const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+      const int elem_j = map[type_j];
+
+      if( rsq < rnd_cutsq(type_i,type_j) ) {
+        snaptr->rij(ninside,0) = dx;
+        snaptr->rij(ninside,1) = dy;
+        snaptr->rij(ninside,2) = dz;
+        snaptr->inside[ninside] = j;
+        snaptr->wj[ninside] = wjelem[elem_j];
+        snaptr->rcutij[ninside] = (radi + radelem[elem_j])*rcutfac;
+        ninside++;
+        //OK
+        //printf("SNAP-COMPARE: NEIGHS: %i %i: %i %e %e %e %e %e\n",
+        //  i,ninside,j,dx,dy,dz,wjelem[elem_j],(radi + radelem[elem_j])*rcutfac);
       }
     }
+    //printf("SNAP-COMPARE: NINSIDE: %i %i\n",i,ninside);
 
     // compute Ui, Zi, and Bi for atom I
 
@@ -229,11 +226,12 @@ void ForceSNAP::compute_regular(int eflag, int vflag)
     // compute dUi/drj and dBi/drj
     // Fij = dEi/dRj = -dEi/dRi => add to Fi, subtract from Fj
 
-    double* coeffi = coeffelem[ielem];
+    Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+      coeffi(coeffelem,elem_i,Kokkos::ALL);
 
     for (int jj = 0; jj < ninside; jj++) {
       int j = snaptr->inside[jj];
-      snaptr->compute_duidrj(snaptr->rij[jj],
+      snaptr->compute_duidrj(&snaptr->rij(jj,0),
 			     snaptr->wj[jj],snaptr->rcutij[jj]);
 
       snaptr->compute_dbidrj();
@@ -246,10 +244,10 @@ void ForceSNAP::compute_regular(int eflag, int vflag)
       // linear contributions
       
       for (int k = 1; k <= ncoeff; k++) {
-	double bgb = coeffi[k];
-	fij[0] += bgb*snaptr->dbvec[k-1][0];
-	fij[1] += bgb*snaptr->dbvec[k-1][1];
-	fij[2] += bgb*snaptr->dbvec[k-1][2];
+        double bgb = coeffi[k];
+        fij[0] += bgb*snaptr->dbvec(k-1,0);
+        fij[1] += bgb*snaptr->dbvec(k-1,1);
+        fij[2] += bgb*snaptr->dbvec(k-1,2);
       }
 
       // quadratic contributions
@@ -261,38 +259,49 @@ void ForceSNAP::compute_regular(int eflag, int vflag)
         for (int icoeff = 0; icoeff < ncoeff; icoeff++) {
           double bveci = snaptr->bvec[icoeff];
           double fack = coeffi[k]*bveci;
-          double* dbveci = snaptr->dbvec[icoeff];
-          fij[0] += fack*snaptr->dbvec[icoeff][0];
-          fij[1] += fack*snaptr->dbvec[icoeff][1];
-          fij[2] += fack*snaptr->dbvec[icoeff][2];
+          //double* dbveci = snaptr->dbvec[icoeff];
+          fij[0] += fack*snaptr->dbvec(icoeff,0);
+          fij[1] += fack*snaptr->dbvec(icoeff,1);
+          fij[2] += fack*snaptr->dbvec(icoeff,2);
           k++;
           for (int jcoeff = icoeff+1; jcoeff < ncoeff; jcoeff++) {
             double facki = coeffi[k]*bveci;
             double fackj = coeffi[k]*snaptr->bvec[jcoeff];
-            double* dbvecj = snaptr->dbvec[jcoeff];
-            fij[0] += facki*dbvecj[0]+fackj*dbveci[0];
-            fij[1] += facki*dbvecj[1]+fackj*dbveci[1];
-            fij[2] += facki*dbvecj[2]+fackj*dbveci[2];
+            //double* dbvecj = snaptr->dbvec[jcoeff];
+            fij[0] += facki*snaptr->dbvec(jcoeff,0)+fackj*snaptr->dbvec(icoeff,0);
+            fij[1] += facki*snaptr->dbvec(jcoeff,1)+fackj*snaptr->dbvec(icoeff,1);
+            fij[2] += facki*snaptr->dbvec(jcoeff,2)+fackj*snaptr->dbvec(icoeff,2);
             k++;
           }
         }
       }
-      
-      f[i][0] += fij[0];
-      f[i][1] += fij[1];
-      f[i][2] += fij[2];
-      f[j][0] -= fij[0];
-      f[j][1] -= fij[1];
-      f[j][2] -= fij[2];
+      const double dx = snaptr->rij(jj,0);
+      const double dy = snaptr->rij(jj,1);
+      const double dz = snaptr->rij(jj,2);
+      const double fdivr = -1.5e6/pow(dx*dx + dy*dy + dz*dz,7.0);
+      fij[0] += dx*fdivr;
+      fij[1] += dy*fdivr;
+      fij[2] += dz*fdivr;
 
+      //OK
+      //printf("%lf %lf %lf %lf %lf %lf %lf %lf %lf SNAP-COMPARE: FIJ\n"
+      //    ,x(i,0),x(i,1),x(i,2),x(j,0),x(j,1),x(j,2),fij[0],fij[1],fij[2] );
+      f(i,0) += fij[0];
+      f(i,1) += fij[1];
+      f(i,2) += fij[2];
+      f(j,0) -= fij[0];
+      f(j,1) -= fij[1];
+      f(j,2) -= fij[2];
+/*
       if (evflag)
 	ev_tally_xyz(i,j,nlocal,newton_pair,0.0,0.0,
 		     fij[0],fij[1],fij[2],
 		     snaptr->rij[jj][0],snaptr->rij[jj][1],
 		     snaptr->rij[jj][2]);
+		     */
     }
 
-    if (eflag) {
+/*    if (eflag) {
 
       // evdwl = energy of atom I, sum over coeffs_k * Bi_k
 
@@ -326,12 +335,18 @@ void ForceSNAP::compute_regular(int eflag, int vflag)
       }
       ev_tally_full(i,2.0*evdwl,0.0,0.0,delx,dely,delz);
     }
-
+*/
   }
 
-  if (vflag_fdotr) virial_fdotr_compute();
+ /* static int step = 0;
+  for (int i = 0; i < nlocal+system->N_ghost; i++) {
+    printf("%i %lf %lf %lf %e %e %e %e %e %e %i SNAP-COMPARE: XF\n",
+      step,x(i,0),x(i,1),x(i,2),v(i,0),v(i,1),v(i,2),f(i,0),f(i,1),f(i,2),i);
+  }
+  step++;*/
+  //if (vflag_fdotr) virial_fdotr_compute();
 }
-*/
+
 
 /* ----------------------------------------------------------------------
    This version is optimized for threading, micro-load balancing
@@ -1385,9 +1400,9 @@ void ForceSNAP::settings(int narg, char **arg)
 
 void ForceSNAP::init_coeff(int narg, char **arg)
 {
-  printf("InitCoeff %i\n",narg); 
+  /*printf("InitCoeff %i\n",narg);
   for(int i=0; i<narg; i++) printf("%s ",arg[i]);
-  printf("\n");
+  printf("\n");*/
   // read SNAP element names between 2 filenames
   // nelements = # of SNAP elements
   // elements = list of unique element names
@@ -1406,26 +1421,18 @@ void ForceSNAP::init_coeff(int narg, char **arg)
 
   nelements = narg - 5 - system->ntypes;
   if (nelements < 1) Kokkos::abort("SNAP 2: Incorrect args for pair coefficients");
-  printf("InitCoeff A %i\n",nelements); 
 
   char* type1 = arg[1];
-  printf("InitCoeff B\n"); 
   char* type2 = arg[2];
-  printf("InitCoeff C\n"); 
   char* coefffilename = arg[3];
-  printf("InitCoeff D\n"); 
   char** elemlist = &arg[4];
-  printf("InitCoeff E\n"); 
   char* paramfilename = arg[4+nelements];
-  printf("InitCoeff F1\n"); 
   char** elemtypes = &arg[5+nelements];
 
   // insure I,J args are * *
-  printf("%s %s\n",type1,type2);
   if (strcmp(type1,"*") != 0 || strcmp(type2,"*") != 0)
     Kokkos::abort("A Incorrect args for pair coefficients");
 
-  printf("InitCoeff G\n"); 
   elements = new char*[nelements];
 
   for (int i = 0; i < nelements; i++) {
@@ -1437,9 +1444,7 @@ void ForceSNAP::init_coeff(int narg, char **arg)
 
   // read snapcoeff and snapparam files
 
-  printf("InitCoeff::ReadFiles %s %s\n",coefffilename,paramfilename); 
   read_files(coefffilename,paramfilename);
-  printf("InitCoeff::ReadFiles Done\n"); 
 
   if (!quadraticflag)
     ncoeff = ncoeffall - 1;
@@ -1457,7 +1462,6 @@ void ForceSNAP::init_coeff(int narg, char **arg)
     }
   }
 
-  printf("A1\n");
   // read args that map atom types to SNAP elements
   // map[i] = which element the Ith atom type is, -1 if not mapped
   // map[0] is not used
@@ -1475,7 +1479,6 @@ void ForceSNAP::init_coeff(int narg, char **arg)
     else Kokkos::abort("Incorrect args for pair coefficients");
   }
 
-  printf("A2\n");
   // clear setflag since coeff() called once with I,J = * *
 
   /*
@@ -1497,7 +1500,6 @@ void ForceSNAP::init_coeff(int narg, char **arg)
   if (count == 0) Kokkos::abort("Incorrect args for pair coefficients");
   */
   sna = new SNA*[nthreads];
-  printf("A3 %i\n",nthreads);
   // allocate memory for per OpenMP thread data which
   // is wrapped into the sna class
 
@@ -1511,10 +1513,14 @@ void ForceSNAP::init_coeff(int narg, char **arg)
 		                   rmin0,switchflag,bzeroflag);
     if (!use_shared_arrays)
       sna[tid]->grow_rij(nmax);
-  }
-  printf("A4\n");
 
-  printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna[0]->ncoeff);
+  }
+
+  {
+    int tid = 0;//omp_get_thread_num();
+    sna[tid]->init();
+  }
+  //printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna[0]->ncoeff);
   if (ncoeff != sna[0]->ncoeff) {
     printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna[0]->ncoeff);
     Kokkos::abort("Incorrect SNAP parameter file");
@@ -1523,9 +1529,11 @@ void ForceSNAP::init_coeff(int narg, char **arg)
   // Calculate maximum cutoff for all elements
 
   rcutmax = 0.0;
-  for (int ielem = 0; ielem < nelements; ielem++)
+  for (int ielem = 0; ielem < nelements; ielem++) {
     rcutmax = MAX(2.0*radelem[ielem]*rcutfac,rcutmax);
-
+  }
+  Kokkos::deep_copy(cutsq,rcutmax*rcutmax);
+  rnd_cutsq = cutsq;
 }
 
 /* ----------------------------------------------------------------------
@@ -1589,7 +1597,6 @@ void ForceSNAP::read_files(char *coefffilename, char *paramfilename)
   while (nwords == 0) {
     //if (comm->me == 0) {
       ptr = fgets(line,MAXLINE,fpcoeff);
-      printf("Line: |%s| %u %u %u\n",ptr,strlen(line),line[0],'\n');
       if (ptr == NULL) {
         eof = 1;
         fclose(fpcoeff);
@@ -1611,7 +1618,6 @@ void ForceSNAP::read_files(char *coefffilename, char *paramfilename)
 
   // words = ptrs to all words in line
   // strip single and double quotes from words
-printf("A %s\n",line);
   char* words[MAXWORD];
   int iword = 0;
   words[iword] = strtok(line,"' \t\n\r\f");
@@ -1623,7 +1629,6 @@ printf("A %s\n",line);
   
   // Set up element lists
 
-printf("B\n");
   radelem = Kokkos::View<T_F_FLOAT*>("pair:radelem",nelements);
   wjelem = Kokkos::View<T_F_FLOAT*>("pair:wjelem",nelements);
   coeffelem = Kokkos::View<T_F_FLOAT**>("pair:coeffelem",nelements,ncoeffall);
@@ -1644,7 +1649,6 @@ printf("B\n");
       } else n = strlen(line) + 1;
     //}
     //MPI_Bcast(&eof,1,MPI_INT,0,world);
-printf("C\n");
     if (eof)
       Kokkos::abort("Incorrect format in SNAP coefficient file");
     //MPI_Bcast(&n,1,MPI_INT,0,world);
@@ -1677,7 +1681,6 @@ printf("C\n");
       continue;
     }
 
-printf("D\n");
     // skip if element already appeared
 
     if (found[ielem]) {
@@ -1693,8 +1696,6 @@ printf("D\n");
 
 
     //if (comm->me == 0) {
-      printf("SNAP Element = %s, Radius %g, Weight %g \n",
-			  elements[ielem], radelem[ielem], wjelem[ielem]);
       //if (logfile) fprintf(logfile,"SNAP Element = %s, Radius %g, Weight %g \n",
 			//  elements[ielem], radelem[ielem], wjelem[ielem]);
     //}
@@ -1725,7 +1726,6 @@ printf("D\n");
 
     }
   }
-printf("E\n");
 
   // set flags for required keywords
 
@@ -1785,7 +1785,6 @@ printf("E\n");
 
     //if (comm->me == 0) {
       //if (screen) 
-      printf("SNAP keyword %s %s \n",keywd,keyval);
       //if (logfile) fprintf(logfile,"SNAP keyword %s %s \n",keywd,keyval);
     //}
 
