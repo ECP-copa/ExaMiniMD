@@ -153,7 +153,27 @@ public:
     // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
 
     int ninside = 0;
-    for (int jj = 0; jj < num_neighs; jj++) {
+    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
+        [&] (const int jj, int& count) {
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
+        T_INT j = neighs_i(jj);
+        const T_F_FLOAT dx = x(j,0) - x_i;
+        const T_F_FLOAT dy = x(j,1) - y_i;
+        const T_F_FLOAT dz = x(j,2) - z_i;
+
+        const int type_j = type(j);
+        const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+        const int elem_j = map[type_j];
+
+        if( rsq < rnd_cutsq(type_i,type_j) )
+         count++;
+      });
+    },ninside);
+
+    if(team.team_rank() == 0)
+    Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
+        [&] (const int jj, int& offset, bool final){
+    //for (int jj = 0; jj < num_neighs; jj++) {
       T_INT j = neighs_i(jj);
       const T_F_FLOAT dx = x(j,0) - x_i;
       const T_F_FLOAT dy = x(j,1) - y_i;
@@ -164,24 +184,24 @@ public:
       const int elem_j = map[type_j];
 
       if( rsq < rnd_cutsq(type_i,type_j) ) {
-        my_sna.rij(ninside,0) = dx;
-        my_sna.rij(ninside,1) = dy;
-        my_sna.rij(ninside,2) = dz;
-        my_sna.inside[ninside] = j;
-        my_sna.wj[ninside] = wjelem[elem_j];
-        my_sna.rcutij[ninside] = (radi + radelem[elem_j])*rcutfac;
-        ninside++;
-        //OK
-        //printf("SNAP-COMPARE: NEIGHS: %i %i: %i %e %e %e %e %e\n",
-        //  i,ninside,j,dx,dy,dz,wjelem[elem_j],(radi + radelem[elem_j])*rcutfac);
+        if(final) {
+          my_sna.rij(offset,0) = dx;
+          my_sna.rij(offset,1) = dy;
+          my_sna.rij(offset,2) = dz;
+          my_sna.inside[offset] = j;
+          my_sna.wj[offset] = wjelem[elem_j];
+          my_sna.rcutij[offset] = (radi + radelem[elem_j])*rcutfac;
+        }
+        offset++;
       }
-    }
-    //printf("SNAP-COMPARE: NINSIDE: %i %i\n",i,ninside);
+    });
 
+    team.team_barrier();
     // compute Ui, Zi, and Bi for atom I
-
-    my_sna.compute_ui(ninside);
-    my_sna.compute_zi();
+    my_sna.compute_ui(team,ninside);
+    team.team_barrier();
+    my_sna.compute_zi(team);
+    team.team_barrier();
 
     // for neighbors of I within cutoff:
     // compute dUi/drj and dBi/drj
@@ -190,10 +210,12 @@ public:
     Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       coeffi(coeffelem,elem_i,Kokkos::ALL);
 
-    for (int jj = 0; jj < ninside; jj++) {
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(team,ninside),
+        [&] (const int jj) {
+    //for (int jj = 0; jj < ninside; jj++) {
       int j = my_sna.inside[jj];
       my_sna.compute_duidrj(&my_sna.rij(jj,0),
-           my_sna.wj[jj],my_sna.rcutij[jj]);
+                             my_sna.wj[jj],my_sna.rcutij[jj]);
 
       my_sna.compute_dbidrj();
       my_sna.copy_dbi2dbvec();
@@ -213,8 +235,6 @@ public:
         fij[2] += bgb*my_sna.dbvec(k-1,2);
       }
 
-      // quadratic contributions
-
       const double dx = my_sna.rij(jj,0);
       const double dy = my_sna.rij(jj,1);
       const double dz = my_sna.rij(jj,2);
@@ -232,7 +252,7 @@ public:
       f(j,0) -= fij[0];
       f(j,1) -= fij[1];
       f(j,2) -= fij[2];
-    }
+    });
   }
 };
 

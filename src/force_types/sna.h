@@ -34,6 +34,7 @@ public:
   typedef Kokkos::View<double*> t_sna_1d;
   typedef Kokkos::View<double**> t_sna_2d;
   typedef Kokkos::View<double***> t_sna_3d;
+  typedef Kokkos::View<double***,Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_3d_atomic;
   typedef Kokkos::View<double***[3]> t_sna_4d;
   typedef Kokkos::View<double**[3]> t_sna_3d3;
   typedef Kokkos::View<double*****> t_sna_5d;
@@ -44,14 +45,15 @@ public:
   ~SNA();
   void build_indexlist(); // SNA()
   void init();            //
-  T_INT size_scratch_arrays();
+  T_INT size_team_scratch_arrays();
+  T_INT size_thread_scratch_arrays();
 
   int ncoeff;
 
   // functions for bispectrum coefficients
 
-  void compute_ui(int); // ForceSNAP
-  void compute_zi();    // ForceSNAP
+  void compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int); // ForceSNAP
+  void compute_zi(const Kokkos::TeamPolicy<>::member_type& team);    // ForceSNAP
 
   // functions for derivatives
 
@@ -71,6 +73,7 @@ public:
   //per sna class instance for OMP use
 
 
+  // Per InFlight Particle
   t_sna_2d rij;
   t_sna_1i inside;
   t_sna_1d wj;
@@ -80,36 +83,41 @@ public:
   void grow_rij(int);
 
   int twojmax, diagonalstyle;
-  Kokkos::View<double*[3]> dbvec;
+  // Per InFlight Particle
   t_sna_3d uarraytot_r, uarraytot_i;
+  t_sna_3d_atomic uarraytot_r_a, uarraytot_i_a;
   t_sna_5d zarray_r, zarray_i;
+
+  // Per InFlight Interaction
   t_sna_3d uarray_r, uarray_i;
+
+  // derivatives of data
+  Kokkos::View<double*[3]> dbvec;
+  t_sna_4d duarray_r, duarray_i;
+  t_sna_4d dbarray;
 
 private:
   double rmin0, rfac0;
 
   //use indexlist instead of loops, constructor generates these
   // Same accross all SNA
-  Kokkos::View<SNA_LOOPINDICES*> idxj;
-  int idxj_max;
+  Kokkos::View<SNA_LOOPINDICES*> idxj,idxj_full;
+  int idxj_max,idxj_full_max;
   // data for bispectrum coefficients
 
   // Same accross all SNA
   t_sna_5d cgarray;
   t_sna_2d rootpqarray;
 
-  // derivatives of data
-
-  t_sna_4d duarray_r, duarray_i;
-  t_sna_4d dbarray;
 
   static const int nmaxfactorial = 167;
   double factorial(int);
 
-  void create_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  void create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  void create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
   void init_clebsch_gordan(); // init()
   void init_rootpqarray();    // init()
-  void zero_uarraytot();      // compute_ui
+  void zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team);      // compute_ui
   void addself_uarraytot(double); // compute_ui
   void add_uarraytot(double, double, double); // compute_ui
 

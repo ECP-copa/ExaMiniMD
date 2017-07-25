@@ -113,9 +113,15 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
 
   sna.nmax = max_neighs;
 
-  T_INT scratch_size = sna.size_scratch_arrays();
-  Kokkos::TeamPolicy<> policy(nlocal,1);
-  Kokkos::parallel_for(policy.set_scratch_size(1,Kokkos::PerThread(scratch_size)),*this);
+  T_INT team_scratch_size = sna.size_team_scratch_arrays();
+  T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
+
+  //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
+  Kokkos::TeamPolicy<> policy(nlocal,2);
+  Kokkos::parallel_for(policy
+      .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
+      .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
+    ,*this);
 }
 
 

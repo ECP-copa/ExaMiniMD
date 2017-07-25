@@ -70,9 +70,12 @@ SNA::SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team) {
   nmax = sna.nmax;
   idxj = sna.idxj;
   idxj_max = sna.idxj_max;
+  idxj_full = sna.idxj_full;
+  idxj_full_max = sna.idxj_full_max;
   cgarray = sna.cgarray;
   rootpqarray = sna.rootpqarray;
-  create_scratch_arrays(team);
+  create_team_scratch_arrays(team);
+  create_thread_scratch_arrays(team);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -85,28 +88,39 @@ void SNA::build_indexlist()
 {
   if(diagonalstyle == 3) {
     int idxj_count = 0;
+    int idxj_full_count = 0;
 
     for(int j1 = 0; j1 <= twojmax; j1++)
       for(int j2 = 0; j2 <= j1; j2++)
-        for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2)
+        for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2) {
           if (j >= j1) idxj_count++;
+          idxj_full_count++;
+        }
 
     // indexList can be changed here
 
     idxj = Kokkos::View<SNA_LOOPINDICES*>("SNA::idxj",idxj_count);
+    idxj_full = Kokkos::View<SNA_LOOPINDICES*>("SNA::idxj_full",idxj_full_count);
     idxj_max = idxj_count;
+    idxj_full_max = idxj_full_count;
 
     idxj_count = 0;
+    idxj_full_count = 0;
 
     for(int j1 = 0; j1 <= twojmax; j1++)
       for(int j2 = 0; j2 <= j1; j2++)
-        for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2)
-	  if (j >= j1) {
-	    idxj[idxj_count].j1 = j1;
-	    idxj[idxj_count].j2 = j2;
-	    idxj[idxj_count].j = j;
-	    idxj_count++;
-	  }
+        for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2) {
+          if (j >= j1) {
+            idxj[idxj_count].j1 = j1;
+            idxj[idxj_count].j2 = j2;
+            idxj[idxj_count].j = j;
+            idxj_count++;
+          }
+          idxj_full[idxj_full_count].j1 = j1;
+          idxj_full[idxj_full_count].j2 = j2;
+          idxj_full[idxj_full_count].j = j;
+          idxj_full_count++;
+        }
   }
 
 }
@@ -136,7 +150,7 @@ void SNA::grow_rij(int newnmax)
    compute Ui by summing over neighbors j
 ------------------------------------------------------------------------- */
 
-void SNA::compute_ui(int jnum)
+void SNA::compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int jnum)
 {
   double rsq, r, x, y, z, z0, theta0;
 
@@ -146,14 +160,15 @@ void SNA::compute_ui(int jnum)
   //   compute r0 = (x,y,z,z0)
   //   utot(j,ma,mb) += u(r0;j,ma,mb) for all j,ma,mb
 
-  zero_uarraytot();
-  addself_uarraytot(wself);
+  if(team.team_rank() == 0) {
+    zero_uarraytot(team);
+    addself_uarraytot(wself);
+  }
+  team.team_barrier();
 
-#ifdef TIMING_INFO
-  clock_gettime(CLOCK_REALTIME, &starttime);
-#endif
-
-  for(int j = 0; j < jnum; j++) {
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team,jnum),
+      [&] (const int& j) {
+  //for(int j = 0; j < jnum; j++) {
     x = rij(j,0);
     y = rij(j,1);
     z = rij(j,2);
@@ -166,13 +181,7 @@ void SNA::compute_ui(int jnum)
 
     compute_uarray(x, y, z, z0, r);
     add_uarraytot(r, wj[j], rcutij[j]);
-  }
-
-#ifdef TIMING_INFO
-  clock_gettime(CLOCK_REALTIME, &endtime);
-  timers[0] += (endtime.tv_sec - starttime.tv_sec + 1.0 *
-                (endtime.tv_nsec - starttime.tv_nsec) / 1000000000);
-#endif
+  });
 
 }
 
@@ -180,7 +189,7 @@ void SNA::compute_ui(int jnum)
    compute Zi by summing over products of Ui
 ------------------------------------------------------------------------- */
 
-void SNA::compute_zi()
+void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
 {
   // for j1 = 0,...,twojmax
   //   for j2 = 0,twojmax
@@ -204,27 +213,35 @@ void SNA::compute_zi()
   // compute_dbidrj() requires full j1/j2/j chunk of z elements
   // use zarray j1/j2 symmetry
 
-  for(int j1 = 0; j1 <= twojmax; j1++)
-    for(int j2 = 0; j2 <= j1; j2++) {
-      for(int j = j1 - j2; j <= MIN(twojmax, j1 + j2); j += 2) {
-	double sumb1_r, sumb1_i;
-	int ma2, mb2;
-	for(int mb = 0; 2*mb <= j; mb++)
-	  for(int ma = 0; ma <= j; ma++) {
-	    zarray_r(j1,j2,j,ma,mb) = 0.0;
-	    zarray_i(j1,j2,j,ma,mb) = 0.0;
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(team,idxj_full_max),
+      [&] (const int& idx) {
+    const int j1 = idxj_full(idx).j1;
+    const int j2 = idxj_full(idx).j2;
+    const int j =  idxj_full(idx).j;
+
+
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+1)*(j+1)),
+        [&] (const int mbma ) {
+	//for(int mb = 0; 2*mb <= j; mb++)
+	  //for(int ma = 0; ma <= j; ma++) {
+      const int ma = mbma%(j+1);
+      const int mb = mbma/(j+1);
+	    //zarray_r(j1,j2,j,ma,mb) = 0.0;
+	    //zarray_i(j1,j2,j,ma,mb) = 0.0;
+      double z_r = 0.0;
+      double z_i = 0.0;
 
 	    for(int ma1 = MAX(0, (2 * ma - j - j2 + j1) / 2);
 		ma1 <= MIN(j1, (2 * ma - j + j2 + j1) / 2); ma1++) {
-	      sumb1_r = 0.0;
-	      sumb1_i = 0.0;
+	      double sumb1_r = 0.0;
+	      double sumb1_i = 0.0;
 
-	      ma2 = (2 * ma - j - (2 * ma1 - j1) + j2) / 2;
+	      const int ma2 = (2 * ma - j - (2 * ma1 - j1) + j2) / 2;
 
 	      for(int mb1 = MAX(0, (2 * mb - j - j2 + j1) / 2);
               mb1 <= MIN(j1, (2 * mb - j + j2 + j1) / 2); mb1++) {
 
-		mb2 = (2 * mb - j - (2 * mb1 - j1) + j2) / 2;
+		const int mb2 = (2 * mb - j - (2 * mb1 - j1) + j2) / 2;
 		sumb1_r += cgarray(j1,j2,j,mb1,mb2) *
 		  (uarraytot_r(j1,ma1,mb1) * uarraytot_r(j2,ma2,mb2) -
 		   uarraytot_i(j1,ma1,mb1) * uarraytot_i(j2,ma2,mb2));
@@ -233,14 +250,17 @@ void SNA::compute_zi()
 		   uarraytot_i(j1,ma1,mb1) * uarraytot_r(j2,ma2,mb2));
 	      } // end loop over mb1
 
-	      zarray_r(j1,j2,j,ma,mb) +=
-		sumb1_r * cgarray(j1,j2,j,ma1,ma2);
-	      zarray_i(j1,j2,j,ma,mb) +=
-		sumb1_i * cgarray(j1,j2,j,ma1,ma2);
+	      z_r += sumb1_r * cgarray(j1,j2,j,ma1,ma2);
+	      z_i += sumb1_i * cgarray(j1,j2,j,ma1,ma2);
 	    } // end loop over ma1
-	  } // end loop over ma, mb
-      } // end loop over j
-    } // end loop over j1, j2
+      zarray_r(j1,j2,j,ma,mb) = z_r;
+	    zarray_i(j1,j2,j,ma,mb) = z_i;
+	  }); // end loop over ma, mb
+    //  }
+    //}
+  });
+      //} // end loop over j
+    //} // end loop over j1, j2
 
 #ifdef TIMING_INFO
   clock_gettime(CLOCK_REALTIME, &endtime);
@@ -592,14 +612,22 @@ void SNA::copy_dbi2dbvec()
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::zero_uarraytot()
+void SNA::zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team)
 {
-  for (int j = 0; j <= twojmax; j++)
-    for (int ma = 0; ma <= j; ma++)
-      for (int mb = 0; mb <= j; mb++) {
-        uarraytot_r(j,ma,mb) = 0.0;
-        uarraytot_i(j,ma,mb) = 0.0;
-      }
+  {
+    double* const ptr = uarraytot_r.data();
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,uarraytot_r.span()),
+        [&] (const int& i) {
+      ptr[i] = 0.0;
+    });
+  }
+  {
+    double* const ptr = uarraytot_i.data();
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,uarraytot_r.span()),
+        [&] (const int& i) {
+      ptr[i] = 0.0;
+    });
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -628,9 +656,9 @@ void SNA::add_uarraytot(double r, double wj, double rcut)
   for (int j = 0; j <= twojmax; j++)
     for (int ma = 0; ma <= j; ma++)
       for (int mb = 0; mb <= j; mb++) {
-        uarraytot_r(j,ma,mb) +=
+        uarraytot_r_a(j,ma,mb) +=
           sfac * uarray_r(j,ma,mb);
-        uarraytot_i(j,ma,mb) +=
+        uarraytot_i_a(j,ma,mb) +=
           sfac * uarray_i(j,ma,mb);
       }
 }
@@ -881,7 +909,41 @@ void SNA::compute_duarray(double x, double y, double z,
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::create_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
+void SNA::create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
+{
+  int jdim = twojmax + 1;
+  uarraytot_r_a = uarraytot_r = t_sna_3d(team.team_scratch(1),jdim,jdim,jdim);
+  uarraytot_i_a = uarraytot_i = t_sna_3d(team.team_scratch(1),jdim,jdim,jdim);
+  zarray_r = t_sna_5d(team.team_scratch(1),jdim,jdim,jdim,jdim,jdim);
+  zarray_i = t_sna_5d(team.team_scratch(1),jdim,jdim,jdim,jdim,jdim);
+
+  rij = t_sna_2d(team.team_scratch(1),nmax,3);
+  rcutij = t_sna_1d(team.team_scratch(1),nmax);
+  wj = t_sna_1d(team.team_scratch(1),nmax);
+  inside = t_sna_1i(team.team_scratch(1),nmax);
+}
+
+
+T_INT SNA::size_team_scratch_arrays() {
+  T_INT size = 0;
+  int jdim = twojmax + 1;
+
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
+  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
+
+  size += t_sna_2d::shmem_size(nmax,3);
+  size += t_sna_1d::shmem_size(nmax);
+  size += t_sna_1d::shmem_size(nmax);
+  size += t_sna_1i::shmem_size(nmax);
+
+  return size;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void SNA::create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
 {
   int jdim = twojmax + 1;
   dbvec = Kokkos::View<double*[3]>(team.thread_scratch(1),ncoeff);
@@ -891,19 +953,10 @@ void SNA::create_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
   uarray_i = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
   duarray_r = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
   duarray_i = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
-
-  uarraytot_r = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
-  uarraytot_i = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
-  zarray_r = t_sna_5d(team.thread_scratch(1),jdim,jdim,jdim,jdim,jdim);
-  zarray_i = t_sna_5d(team.thread_scratch(1),jdim,jdim,jdim,jdim,jdim);
-
-  rij = t_sna_2d(team.thread_scratch(1),nmax,3);
-  rcutij = t_sna_1d(team.thread_scratch(1),nmax);
-  wj = t_sna_1d(team.thread_scratch(1),nmax);
-  inside = t_sna_1i(team.thread_scratch(1),nmax);
 }
 
-T_INT SNA::size_scratch_arrays() {
+
+T_INT SNA::size_thread_scratch_arrays() {
   T_INT size = 0;
   int jdim = twojmax + 1;
   size += Kokkos::View<double*[3]>::shmem_size(ncoeff);
@@ -913,16 +966,6 @@ T_INT SNA::size_scratch_arrays() {
   size += t_sna_3d::shmem_size(jdim,jdim,jdim);
   size += t_sna_4d::shmem_size(jdim,jdim,jdim);
   size += t_sna_4d::shmem_size(jdim,jdim,jdim);
-
-  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
-  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
-  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
-  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
-  size += t_sna_2d::shmem_size(nmax,3);
-  size += t_sna_1d::shmem_size(nmax);
-  size += t_sna_1d::shmem_size(nmax);
-  size += t_sna_1i::shmem_size(nmax);
-
   return size;
 }
 
