@@ -66,8 +66,6 @@ public:
 
   //per sna class instance for OMP use
 
-  //double* bvec, ** dbvec;
-  Kokkos::View<double*> bvec;
   Kokkos::View<double*[3]> dbvec;
 
   t_sna_2d rij;
@@ -81,8 +79,6 @@ public:
   int twojmax, diagonalstyle;
   t_sna_3d uarraytot_r, uarraytot_i;
   t_sna_5d zarray_r, zarray_i;
-  t_sna_3d uarraytot_r_b, uarraytot_i_b;
-  t_sna_5d zarray_r_b, zarray_i_b;
   t_sna_3d uarray_r, uarray_i;
 
 private:
@@ -95,7 +91,6 @@ private:
 
   t_sna_5d cgarray;
   t_sna_2d rootpqarray;
-  t_sna_3d barray;
 
   // derivatives of data
 
@@ -133,9 +128,6 @@ private:
 
   // Self-weight
   double wself;
-
-  int bzero_flag; // 1 if bzero subtracted from barray
-  double *bzero;  // array of B values for isolated atoms
 };
 
 

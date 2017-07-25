@@ -25,86 +25,6 @@
 using namespace std;
 using namespace MathConst;
 
-/* ----------------------------------------------------------------------
-
-   this implementation is based on the method outlined
-   in Bartok[1], using formulae from VMK[2].
-
-   for the Clebsch-Gordan coefficients, we
-   convert the VMK half-integral labels
-   a, b, c, alpha, beta, gamma
-   to array offsets j1, j2, j, m1, m2, m
-   using the following relations:
-
-   j1 = 2*a
-   j2 = 2*b
-   j =  2*c
-
-   m1 = alpha+a      2*alpha = 2*m1 - j1
-   m2 = beta+b    or 2*beta = 2*m2 - j2
-   m =  gamma+c      2*gamma = 2*m - j
-
-   in this way:
-
-   -a <= alpha <= a
-   -b <= beta <= b
-   -c <= gamma <= c
-
-   becomes:
-
-   0 <= m1 <= j1
-   0 <= m2 <= j2
-   0 <= m <= j
-
-   and the requirement that
-   a+b+c be integral implies that
-   j1+j2+j must be even.
-   The requirement that:
-
-   gamma = alpha+beta
-
-   becomes:
-
-   2*m - j = 2*m1 - j1 + 2*m2 - j2
-
-   Similarly, for the Wigner U-functions U(J,m,m') we
-   convert the half-integral labels J,m,m' to
-   array offsets j,ma,mb:
-
-   j = 2*J
-   ma = J+m
-   mb = J+m'
-
-   so that:
-
-   0 <= j <= 2*Jmax
-   0 <= ma, mb <= j.
-
-   For the bispectrum components B(J1,J2,J) we convert to:
-
-   j1 = 2*J1
-   j2 = 2*J2
-   j = 2*J
-
-   and the requirement:
-
-   |J1-J2| <= J <= J1+J2, for j1+j2+j integral
-
-   becomes:
-
-   |j1-j2| <= j <= j1+j2, for j1+j2+j even integer
-
-   or
-
-   j = |j1-j2|, |j1-j2|+2,...,j1+j2-2,j1+j2
-
-   [1] Albert Bartok-Partay, "Gaussian Approximation..."
-   Doctoral Thesis, Cambrindge University, (2009)
-
-   [2] D. A. Varshalovich, A. N. Moskalev, and V. K. Khersonskii,
-   "Quantum Theory of Angular Momentum," World Scientific (1988)
-
-------------------------------------------------------------------------- */
 
 SNA::SNA(double rfac0_in,
          int twojmax_in, int diagonalstyle_in, int use_shared_arrays_in,
@@ -116,7 +36,6 @@ SNA::SNA(double rfac0_in,
   rfac0 = rfac0_in;
   rmin0 = rmin0_in;
   switch_flag = switch_flag_in;
-  bzero_flag = bzero_flag_in;
 
   twojmax = twojmax_in;
   diagonalstyle = diagonalstyle_in;
@@ -125,28 +44,12 @@ SNA::SNA(double rfac0_in,
 
   create_twojmax_arrays();
 
-  //printf("SNAP-COMPARE: NCOEFF: %i\n",ncoeff);
-  bvec = Kokkos::View<double*>("pair:bvec",ncoeff);
   dbvec = Kokkos::View<double*[3]>("pair:dbvec",ncoeff);
   nmax = 0;
   idxj = NULL;
-
-  if (bzero_flag) {
-    double www = wself*wself*wself;
-    for(int j = 0; j <= twojmax; j++)
-      bzero[j] = www*(j+1);
-  }
   
-#ifdef TIMING_INFO
-  timers = new double[20];
-  for(int i = 0; i < 20; i++) timers[i] = 0;
-  print = 0;
-  counter = 0;
-#endif
-
   build_indexlist();
 
-  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -155,12 +58,6 @@ SNA::~SNA()
 {
   if(!use_shared_arrays) {
     destroy_twojmax_arrays();
-/*    memory->destroy(rij);
-    memory->destroy(inside);
-    memory->destroy(wj);
-    memory->destroy(rcutij);
-    memory->destroy(bvec);
-    memory->destroy(dbvec);*/
   }
   delete[] idxj;
 }
@@ -177,7 +74,6 @@ void SNA::build_indexlist()
 
     // indexList can be changed here
 
-    //printf("SNAP-COMPARE C: %i\n",idxj_count);
     idxj = new SNA_LOOPINDICES[idxj_count];
     idxj_max = idxj_count;
 
@@ -215,14 +111,6 @@ void SNA::grow_rij(int newnmax)
     rcutij = t_sna_1d("SNA::rcutij",nmax);
     wj = t_sna_1d("SNA::wj",nmax);
     inside = t_sna_1i("SNA::inside",nmax);
-    /*memory->destroy(rij);
-    memory->destroy(inside);
-    memory->destroy(wj);
-    memory->destroy(rcutij);
-    memory->create(rij, nmax, 3, "pair:rij");
-    memory->create(inside, nmax, "pair:inside");
-    memory->create(wj, nmax, "pair:wj");
-    memory->create(rcutij, nmax, "pair:rcutij");*/
  }
 }
 /* ----------------------------------------------------------------------
@@ -978,8 +866,7 @@ void SNA::create_twojmax_arrays()
 {
   int jdim = twojmax + 1;
   cgarray = t_sna_5d("sna:cgarray",jdim,jdim,jdim,jdim,jdim);
-  rootpqarray = t_sna_2d("sna:barray",jdim+1,jdim+1);
-  barray = t_sna_3d("sna:barray",jdim,jdim,jdim);
+  rootpqarray = t_sna_2d("sna:rootpqarray",jdim+1,jdim+1);
   dbarray = t_sna_4d("sna:dbarray",jdim,jdim,jdim);
 
   uarray_r = t_sna_3d("sna:uarray_r",jdim,jdim,jdim);
