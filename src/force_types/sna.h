@@ -21,6 +21,7 @@
 #include <complex>
 #include <ctime>
 #include <Kokkos_Core.hpp>
+#include <types.h>
 
 struct SNA_LOOPINDICES {
   int j1, j2, j;
@@ -36,11 +37,14 @@ public:
   typedef Kokkos::View<double***[3]> t_sna_4d;
   typedef Kokkos::View<double**[3]> t_sna_3d3;
   typedef Kokkos::View<double*****> t_sna_5d;
+  SNA() {};
+  SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team);
   SNA(double, int, int, int, double, int, int);
 
   ~SNA();
   void build_indexlist(); // SNA()
   void init();            //
+  T_INT size_scratch_arrays();
 
   int ncoeff;
 
@@ -66,7 +70,6 @@ public:
 
   //per sna class instance for OMP use
 
-  Kokkos::View<double*[3]> dbvec;
 
   t_sna_2d rij;
   t_sna_1i inside;
@@ -77,6 +80,7 @@ public:
   void grow_rij(int);
 
   int twojmax, diagonalstyle;
+  Kokkos::View<double*[3]> dbvec;
   t_sna_3d uarraytot_r, uarraytot_i;
   t_sna_5d zarray_r, zarray_i;
   t_sna_3d uarray_r, uarray_i;
@@ -85,10 +89,12 @@ private:
   double rmin0, rfac0;
 
   //use indexlist instead of loops, constructor generates these
-  SNA_LOOPINDICES* idxj;
+  // Same accross all SNA
+  Kokkos::View<SNA_LOOPINDICES*> idxj;
   int idxj_max;
   // data for bispectrum coefficients
 
+  // Same accross all SNA
   t_sna_5d cgarray;
   t_sna_2d rootpqarray;
 
@@ -100,8 +106,7 @@ private:
   static const int nmaxfactorial = 167;
   double factorial(int);
 
-  void create_twojmax_arrays(); // SNA()
-  void destroy_twojmax_arrays(); // ~SNA()
+  void create_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
   void init_clebsch_gordan(); // init()
   void init_rootpqarray();    // init()
   void zero_uarraytot();      // compute_ui

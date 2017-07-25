@@ -33,7 +33,15 @@ ForceSNAP::ForceSNAP(char** args, System* system_, bool half_neigh_):Force(args,
   nelements = 0;
 
   nmax = 0;
-  nthreads = 1;
+
+  vector_length = 8;
+  concurrent_interactions =
+#if defined(KOKKOS_ENABLE_CUDA)
+      std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Cuda>::value ?
+          Kokkos::DefaultExecutionSpace::concurrency()/vector_length :
+#else
+          Kokkos::DefaultExecutionSpace::concurrency();
+#endif
 
   schedule_user = 0;
   schedule_time_guided = -1;
@@ -62,7 +70,6 @@ ForceSNAP::ForceSNAP(char** args, System* system_, bool half_neigh_):Force(args,
 
   // Need to set this because restart not handled by ForceHybrid
 
-  sna = NULL;
   cutsq = t_fparams("ForceSNAP::cutsq",system->ntypes,system->ntypes);
 }
 
@@ -72,12 +79,12 @@ ForceSNAP::~ForceSNAP()
 {
   // Need to set this because restart not handled by ForceHybrid
 
-  if (sna) {
-    for (int tid = 0; tid<nthreads; tid++)
+  /*if (sna) {
+    for (int tid = 0; tid<concurrent_interactions; tid++)
       delete sna[tid];
     delete [] sna;
 
-  }
+  }*/
 }
 
 /* ----------------------------------------------------------------------
@@ -87,120 +94,28 @@ ForceSNAP::~ForceSNAP()
 void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
 {
 
-  t_x x = system->x;
-  t_f f = system->f;
-  t_type type = system->type;
+  x = system->x;
+  f = system->f;
+  type = system->type;
   int nlocal = system->N_local;
 
-  class SNA* snaptr = sna[0];
+  //class SNA* snaptr = sna[0];
 
   NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
   neigh_list = neighbor->get_neigh_list();
+  int max_neighs = 0;
 
   for (int i = 0; i < nlocal; i++) {
-
-    const double x_i = x(i,0);
-    const double y_i = x(i,1);
-    const double z_i = x(i,2);
-    const int type_i = type[i];
-    const int elem_i = map[type_i];
-    const double radi = radelem[elem_i];
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
-
     const int num_neighs = neighs_i.get_num_neighs();
-
-    // insure rij, inside, wj, and rcutij are of size jnum
-    //printf("%lf %lf %lf %i %i SNAP-COMPARE: NUMNEIGHS\n",x_i,y_i,z_i,i,num_neighs);
-    snaptr->grow_rij(num_neighs);
-
-    // rij[][3] = displacements between atom I and those neighbors
-    // inside = indices of neighbors of I within cutoff
-    // wj = weights for neighbors of I within cutoff
-    // rcutij = cutoffs for neighbors of I within cutoff
-    // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
-
-    int ninside = 0;
-    for (int jj = 0; jj < num_neighs; jj++) {
-      T_INT j = neighs_i(jj);
-      const T_F_FLOAT dx = x(j,0) - x_i;
-      const T_F_FLOAT dy = x(j,1) - y_i;
-      const T_F_FLOAT dz = x(j,2) - z_i;
-
-      const int type_j = type(j);
-      const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
-      const int elem_j = map[type_j];
-
-      if( rsq < rnd_cutsq(type_i,type_j) ) {
-        snaptr->rij(ninside,0) = dx;
-        snaptr->rij(ninside,1) = dy;
-        snaptr->rij(ninside,2) = dz;
-        snaptr->inside[ninside] = j;
-        snaptr->wj[ninside] = wjelem[elem_j];
-        snaptr->rcutij[ninside] = (radi + radelem[elem_j])*rcutfac;
-        ninside++;
-        //OK
-        //printf("SNAP-COMPARE: NEIGHS: %i %i: %i %e %e %e %e %e\n",
-        //  i,ninside,j,dx,dy,dz,wjelem[elem_j],(radi + radelem[elem_j])*rcutfac);
-      }
-    }
-    //printf("SNAP-COMPARE: NINSIDE: %i %i\n",i,ninside);
-
-    // compute Ui, Zi, and Bi for atom I
-
-    snaptr->compute_ui(ninside);
-    snaptr->compute_zi();
-
-    // for neighbors of I within cutoff:
-    // compute dUi/drj and dBi/drj
-    // Fij = dEi/dRj = -dEi/dRi => add to Fi, subtract from Fj
-
-    Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-      coeffi(coeffelem,elem_i,Kokkos::ALL);
-
-    for (int jj = 0; jj < ninside; jj++) {
-      int j = snaptr->inside[jj];
-      snaptr->compute_duidrj(&snaptr->rij(jj,0),
-			     snaptr->wj[jj],snaptr->rcutij[jj]);
-
-      snaptr->compute_dbidrj();
-      snaptr->copy_dbi2dbvec();
-
-      T_F_FLOAT fij[3];
-
-      fij[0] = 0.0;
-      fij[1] = 0.0;
-      fij[2] = 0.0;
-
-      // linear contributions
-      
-      for (int k = 1; k <= ncoeff; k++) {
-        double bgb = coeffi[k];
-        fij[0] += bgb*snaptr->dbvec(k-1,0);
-        fij[1] += bgb*snaptr->dbvec(k-1,1);
-        fij[2] += bgb*snaptr->dbvec(k-1,2);
-      }
-
-      // quadratic contributions
-      
-      const double dx = snaptr->rij(jj,0);
-      const double dy = snaptr->rij(jj,1);
-      const double dz = snaptr->rij(jj,2);
-      const double fdivr = -1.5e6/pow(dx*dx + dy*dy + dz*dz,7.0);
-      fij[0] += dx*fdivr;
-      fij[1] += dy*fdivr;
-      fij[2] += dz*fdivr;
-
-      //OK
-      //printf("%lf %lf %lf %lf %lf %lf %lf %lf %lf SNAP-COMPARE: FIJ\n"
-      //    ,x(i,0),x(i,1),x(i,2),x(j,0),x(j,1),x(j,2),fij[0],fij[1],fij[2] );
-      f(i,0) += fij[0];
-      f(i,1) += fij[1];
-      f(i,2) += fij[2];
-      f(j,0) -= fij[0];
-      f(j,1) -= fij[1];
-      f(j,2) -= fij[2];
-    }
+    if(max_neighs<num_neighs) max_neighs = num_neighs;
   }
+
+  sna.nmax = max_neighs;
+
+  T_INT scratch_size = sna.size_scratch_arrays();
+  Kokkos::TeamPolicy<> policy(nlocal,1);
+  Kokkos::parallel_for(policy.set_scratch_size(1,Kokkos::PerThread(scratch_size)),*this);
 }
 
 
@@ -297,30 +212,22 @@ void ForceSNAP::init_coeff(int narg, char **arg)
     else Kokkos::abort("Incorrect args for pair coefficients");
   }
 
-  sna = new SNA*[nthreads];
   // allocate memory for per OpenMP thread data which
   // is wrapped into the sna class
 
 //#if defined(_OPENMP)
 //#pragma omp parallel default(none)
 //#endif
-  {
-    int tid = 0;//omp_get_thread_num();
-    sna[tid] = new SNA(rfac0,twojmax,
-                       diagonalstyle,use_shared_arrays,
-		                   rmin0,switchflag,bzeroflag);
-    if (!use_shared_arrays)
-      sna[tid]->grow_rij(nmax);
+  sna = SNA(rfac0,twojmax,
+            diagonalstyle,use_shared_arrays,
+		        rmin0,switchflag,bzeroflag);
+    //if (!use_shared_arrays)
+  sna.grow_rij(nmax);
+  sna.init();
 
-  }
-
-  {
-    int tid = 0;//omp_get_thread_num();
-    sna[tid]->init();
-  }
   //printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna[0]->ncoeff);
-  if (ncoeff != sna[0]->ncoeff) {
-    printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna[0]->ncoeff);
+  if (ncoeff != sna.ncoeff) {
+    printf("ncoeff = %d snancoeff = %d \n",ncoeff,sna.ncoeff);
     Kokkos::abort("Incorrect SNAP parameter file");
   }
 

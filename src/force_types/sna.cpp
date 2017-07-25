@@ -42,24 +42,43 @@ SNA::SNA(double rfac0_in,
 
   ncoeff = compute_ncoeff();
 
-  create_twojmax_arrays();
+  //create_twojmax_arrays();
 
-  dbvec = Kokkos::View<double*[3]>("pair:dbvec",ncoeff);
   nmax = 0;
-  idxj = NULL;
   
   build_indexlist();
 
+  int jdim = twojmax + 1;
+
+  cgarray = t_sna_5d("SNA::cgarray",jdim,jdim,jdim,jdim,jdim);
+  rootpqarray = t_sna_2d("SNA::rootpqarray",jdim+1,jdim+1);
+
+}
+
+SNA::SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team) {
+  wself = sna.wself;
+
+  use_shared_arrays = sna.use_shared_arrays;
+  rfac0 = sna.rfac0;
+  rmin0 = sna.rmin0;
+  switch_flag = sna.switch_flag;
+
+  twojmax = sna.twojmax;
+  diagonalstyle = sna.diagonalstyle;
+
+  ncoeff = sna.ncoeff;
+  nmax = sna.nmax;
+  idxj = sna.idxj;
+  idxj_max = sna.idxj_max;
+  cgarray = sna.cgarray;
+  rootpqarray = sna.rootpqarray;
+  create_scratch_arrays(team);
 }
 
 /* ---------------------------------------------------------------------- */
 
 SNA::~SNA()
 {
-  if(!use_shared_arrays) {
-    destroy_twojmax_arrays();
-  }
-  delete[] idxj;
 }
 
 void SNA::build_indexlist()
@@ -74,7 +93,7 @@ void SNA::build_indexlist()
 
     // indexList can be changed here
 
-    idxj = new SNA_LOOPINDICES[idxj_count];
+    idxj = Kokkos::View<SNA_LOOPINDICES*>("SNA::idxj",idxj_count);
     idxj_max = idxj_count;
 
     idxj_count = 0;
@@ -862,29 +881,49 @@ void SNA::compute_duarray(double x, double y, double z,
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::create_twojmax_arrays()
+void SNA::create_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
 {
   int jdim = twojmax + 1;
-  cgarray = t_sna_5d("sna:cgarray",jdim,jdim,jdim,jdim,jdim);
-  rootpqarray = t_sna_2d("sna:rootpqarray",jdim+1,jdim+1);
-  dbarray = t_sna_4d("sna:dbarray",jdim,jdim,jdim);
+  dbvec = Kokkos::View<double*[3]>(team.thread_scratch(1),ncoeff);
+  dbarray = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
 
-  uarray_r = t_sna_3d("sna:uarray_r",jdim,jdim,jdim);
-  uarray_i = t_sna_3d("sna:uarray_i",jdim,jdim,jdim);
-  duarray_r = t_sna_4d("sna:duarray_r",jdim,jdim,jdim);
-  duarray_i = t_sna_4d("sna:duarray_i",jdim,jdim,jdim);
+  uarray_r = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
+  uarray_i = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
+  duarray_r = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
+  duarray_i = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
 
-  uarraytot_r = t_sna_3d("sna:uarraytot_r",jdim,jdim,jdim);
-  uarraytot_i = t_sna_3d("sna:uarraytot_i",jdim,jdim,jdim);
-  zarray_r = t_sna_5d("sna:zarray_r",jdim,jdim,jdim,jdim,jdim);
-  zarray_i = t_sna_5d("sna:zarray_i",jdim,jdim,jdim,jdim,jdim);
+  uarraytot_r = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
+  uarraytot_i = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
+  zarray_r = t_sna_5d(team.thread_scratch(1),jdim,jdim,jdim,jdim,jdim);
+  zarray_i = t_sna_5d(team.thread_scratch(1),jdim,jdim,jdim,jdim,jdim);
 
+  rij = t_sna_2d(team.thread_scratch(1),nmax,3);
+  rcutij = t_sna_1d(team.thread_scratch(1),nmax);
+  wj = t_sna_1d(team.thread_scratch(1),nmax);
+  inside = t_sna_1i(team.thread_scratch(1),nmax);
 }
 
-/* ---------------------------------------------------------------------- */
+T_INT SNA::size_scratch_arrays() {
+  T_INT size = 0;
+  int jdim = twojmax + 1;
+  size += Kokkos::View<double*[3]>::shmem_size(ncoeff);
+  size += t_sna_4d::shmem_size(jdim,jdim,jdim);
 
-void SNA::destroy_twojmax_arrays()
-{
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_4d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_4d::shmem_size(jdim,jdim,jdim);
+
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_3d::shmem_size(jdim,jdim,jdim);
+  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
+  size += t_sna_5d::shmem_size(jdim,jdim,jdim,jdim,jdim);
+  size += t_sna_2d::shmem_size(nmax,3);
+  size += t_sna_1d::shmem_size(nmax);
+  size += t_sna_1d::shmem_size(nmax);
+  size += t_sna_1i::shmem_size(nmax);
+
+  return size;
 }
 
 /* ----------------------------------------------------------------------
