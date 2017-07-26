@@ -117,7 +117,7 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
   T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
 
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
-  Kokkos::TeamPolicy<> policy(nlocal,2);
+  Kokkos::TeamPolicy<> policy(nlocal,1);
   Kokkos::parallel_for(policy
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
@@ -155,11 +155,13 @@ void ForceSNAP::init_coeff(int narg, char **arg)
     delete[] elements;
     radelem = Kokkos::View<T_F_FLOAT*>();
     wjelem = Kokkos::View<T_F_FLOAT*>();
-    coeffelem = Kokkos::View<T_F_FLOAT**>();
+    coeffelem = Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight>();
   }
 
   nelements = narg - 5 - system->ntypes;
   if (nelements < 1) Kokkos::abort("SNAP 2: Incorrect args for pair coefficients");
+
+  map = Kokkos::View<T_INT*>("ForceSNAP::map",nelements+1);
 
   char* type1 = arg[1];
   char* type2 = arg[2];
@@ -306,7 +308,7 @@ void ForceSNAP::read_files(char *coefffilename, char *paramfilename)
 
   radelem = Kokkos::View<T_F_FLOAT*>("pair:radelem",nelements);
   wjelem = Kokkos::View<T_F_FLOAT*>("pair:wjelem",nelements);
-  coeffelem = Kokkos::View<T_F_FLOAT**>("pair:coeffelem",nelements,ncoeffall);
+  coeffelem = Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight>("pair:coeffelem",nelements,ncoeffall);
 
   int *found = new int[nelements];
   for (int ielem = 0; ielem < nelements; ielem++)

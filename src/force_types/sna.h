@@ -32,35 +32,50 @@ class SNA {
 public:
   typedef Kokkos::View<int*> t_sna_1i;
   typedef Kokkos::View<double*> t_sna_1d;
-  typedef Kokkos::View<double**> t_sna_2d;
-  typedef Kokkos::View<double***> t_sna_3d;
-  typedef Kokkos::View<double***,Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_3d_atomic;
-  typedef Kokkos::View<double***[3]> t_sna_4d;
-  typedef Kokkos::View<double**[3]> t_sna_3d3;
-  typedef Kokkos::View<double*****> t_sna_5d;
+  typedef Kokkos::View<double**, Kokkos::LayoutRight> t_sna_2d;
+  typedef Kokkos::View<double***, Kokkos::LayoutRight> t_sna_3d;
+  typedef Kokkos::View<double***, Kokkos::LayoutRight,Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_3d_atomic;
+  typedef Kokkos::View<double***[3], Kokkos::LayoutRight> t_sna_4d;
+  typedef Kokkos::View<double**[3], Kokkos::LayoutRight> t_sna_3d3;
+  typedef Kokkos::View<double*****, Kokkos::LayoutRight> t_sna_5d;
+  inline
   SNA() {};
+  KOKKOS_INLINE_FUNCTION
   SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team);
+  inline
   SNA(double, int, int, int, double, int, int);
 
+  KOKKOS_INLINE_FUNCTION
   ~SNA();
+  inline
   void build_indexlist(); // SNA()
+  inline
   void init();            //
+  inline
   T_INT size_team_scratch_arrays();
+  inline
   T_INT size_thread_scratch_arrays();
 
   int ncoeff;
 
   // functions for bispectrum coefficients
 
+  KOKKOS_INLINE_FUNCTION
   void compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
   void compute_zi(const Kokkos::TeamPolicy<>::member_type& team);    // ForceSNAP
 
   // functions for derivatives
 
+  KOKKOS_INLINE_FUNCTION
   void compute_duidrj(double*, double, double); //ForceSNAP
+  KOKKOS_INLINE_FUNCTION
   void compute_dbidrj(); //ForceSNAP
+  KOKKOS_INLINE_FUNCTION
   void copy_dbi2dbvec(); //ForceSNAP
+  KOKKOS_INLINE_FUNCTION
   double compute_sfac(double, double); // add_uarraytot, compute_duarray
+  KOKKOS_INLINE_FUNCTION
   double compute_dsfac(double, double); // compute_duarray
 
 #ifdef TIMING_INFO
@@ -92,7 +107,7 @@ public:
   t_sna_3d uarray_r, uarray_i;
 
   // derivatives of data
-  Kokkos::View<double*[3]> dbvec;
+  Kokkos::View<double*[3], Kokkos::LayoutRight> dbvec;
   t_sna_4d duarray_r, duarray_i;
   t_sna_4d dbarray;
 
@@ -111,20 +126,32 @@ private:
 
 
   static const int nmaxfactorial = 167;
+  KOKKOS_INLINE_FUNCTION
   double factorial(int);
 
+  KOKKOS_INLINE_FUNCTION
   void create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  KOKKOS_INLINE_FUNCTION
   void create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  inline
   void init_clebsch_gordan(); // init()
+  inline
   void init_rootpqarray();    // init()
+  KOKKOS_INLINE_FUNCTION
   void zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team);      // compute_ui
+  KOKKOS_INLINE_FUNCTION
   void addself_uarraytot(double); // compute_ui
+  KOKKOS_INLINE_FUNCTION
   void add_uarraytot(double, double, double); // compute_ui
 
+  KOKKOS_INLINE_FUNCTION
   void compute_uarray(double, double, double,
                       double, double); // compute_ui
+  KOKKOS_INLINE_FUNCTION
   double deltacg(int, int, int);  // init_clebsch_gordan
+  inline
   int compute_ncoeff();           // SNA()
+  KOKKOS_INLINE_FUNCTION
   void compute_duarray(double, double, double, // compute_duidrj
                        double, double, double, double, double);
 
@@ -143,7 +170,7 @@ private:
   double wself;
 };
 
-
+#include<sna_impl.hpp>
 #endif
 
 /* ERROR/WARNING messages:

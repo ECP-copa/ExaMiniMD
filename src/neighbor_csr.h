@@ -42,7 +42,8 @@ struct NeighListCSR : public Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,Mem
   NeighListCSR() :
     Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>() {}
   NeighListCSR (const NeighListCSR& rhs) :
-    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>(rhs) {}
+    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>(rhs) {
+  }
 
   template<class EntriesType, class RowMapType>
   NeighListCSR (const EntriesType& entries_,const RowMapType& row_map_) :
@@ -378,7 +379,7 @@ public:
 };
 
 #ifdef KOKKOS_ENABLE_CUDA
-extern template struct NeighborCSR<Kokkos::CudaSpace>;
+extern template struct NeighborCSR<typename Kokkos::Cuda::memory_space>;
 #endif
 extern template struct NeighborCSR<Kokkos::HostSpace>;
 #endif // #define NEIGHBOR_CSR_H

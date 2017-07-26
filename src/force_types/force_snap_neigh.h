@@ -94,14 +94,14 @@ protected:
   int i_max;
   int i_neighmax;
   int i_numpairs;
-  Kokkos::View<T_INT**> i_pairs;
-  Kokkos::View<T_INT***> i_rij;
-  Kokkos::View<T_INT**> i_inside;
-  Kokkos::View<T_F_FLOAT**> i_wj;
-  Kokkos::View<T_F_FLOAT***>i_rcutij;
+  Kokkos::View<T_INT**, Kokkos::LayoutRight> i_pairs;
+  Kokkos::View<T_INT***, Kokkos::LayoutRight> i_rij;
+  Kokkos::View<T_INT**, Kokkos::LayoutRight> i_inside;
+  Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> i_wj;
+  Kokkos::View<T_F_FLOAT***, Kokkos::LayoutRight>i_rcutij;
   Kokkos::View<T_INT*> i_ninside;
-  Kokkos::View<T_F_FLOAT****> i_uarraytot_r, i_uarraytot_i;
-  Kokkos::View<T_F_FLOAT******> i_zarray_r, i_zarray_i;
+  Kokkos::View<T_F_FLOAT****, Kokkos::LayoutRight> i_uarraytot_r, i_uarraytot_i;
+  Kokkos::View<T_F_FLOAT******, Kokkos::LayoutRight> i_zarray_r, i_zarray_i;
 
 #ifdef TIMING_INFO
   //  timespec starttime, endtime;
@@ -113,7 +113,7 @@ protected:
   char **elements;              // names of unique elements
   Kokkos::View<T_F_FLOAT*> radelem;              // element radii
   Kokkos::View<T_F_FLOAT*> wjelem;               // elements weights
-  Kokkos::View<T_F_FLOAT**> coeffelem;           // element bispectrum coefficients
+  Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> coeffelem;           // element bispectrum coefficients
   Kokkos::View<T_INT*> map;                     // mapping from atom types to elements
   int twojmax, diagonalstyle, switchflag, bzeroflag, quadraticflag;
   double rcutfac, rfac0, rmin0, wj1, wj2;
@@ -131,7 +131,6 @@ protected:
 
 public:
 
-
   KOKKOS_INLINE_FUNCTION
   void operator() (const Kokkos::TeamPolicy<>::member_type& team) const {
     const int i = team.league_rank();
@@ -142,6 +141,7 @@ public:
     const int type_i = type[i];
     const int elem_i = map[type_i];
     const double radi = radelem[elem_i];
+
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
 
     const int num_neighs = neighs_i.get_num_neighs();
@@ -207,7 +207,7 @@ public:
     // compute dUi/drj and dBi/drj
     // Fij = dEi/dRj = -dEi/dRi => add to Fi, subtract from Fj
 
-    Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+    Kokkos::View<double*,Kokkos::LayoutRight,Kokkos::MemoryTraits<Kokkos::Unmanaged>>
       coeffi(coeffelem,elem_i,Kokkos::ALL);
 
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team,ninside),

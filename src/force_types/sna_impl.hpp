@@ -25,7 +25,7 @@
 using namespace std;
 using namespace MathConst;
 
-
+inline
 SNA::SNA(double rfac0_in,
          int twojmax_in, int diagonalstyle_in, int use_shared_arrays_in,
          double rmin0_in, int switch_flag_in, int bzero_flag_in) 
@@ -55,6 +55,7 @@ SNA::SNA(double rfac0_in,
 
 }
 
+KOKKOS_INLINE_FUNCTION
 SNA::SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team) {
   wself = sna.wself;
 
@@ -80,10 +81,12 @@ SNA::SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team) {
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 SNA::~SNA()
 {
 }
 
+inline
 void SNA::build_indexlist()
 {
   if(diagonalstyle == 3) {
@@ -126,30 +129,24 @@ void SNA::build_indexlist()
 }
 /* ---------------------------------------------------------------------- */
 
+inline
 void SNA::init()
 {
   init_clebsch_gordan();
   init_rootpqarray();
 }
 
-
+inline
 void SNA::grow_rij(int newnmax)
 {
   if(newnmax <= nmax) return;
-
   nmax = newnmax;
-
-  if(!use_shared_arrays) {
-    rij = t_sna_2d("SNA::rij",nmax,3);
-    rcutij = t_sna_1d("SNA::rcutij",nmax);
-    wj = t_sna_1d("SNA::wj",nmax);
-    inside = t_sna_1i("SNA::inside",nmax);
- }
 }
 /* ----------------------------------------------------------------------
    compute Ui by summing over neighbors j
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int jnum)
 {
   double rsq, r, x, y, z, z0, theta0;
@@ -189,6 +186,7 @@ void SNA::compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int jnum)
    compute Zi by summing over products of Ui
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
 {
   // for j1 = 0,...,twojmax
@@ -274,6 +272,7 @@ void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
    calculate derivative of Ui w.r.t. atom j
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_duidrj(double* rij, double wj, double rcut)
 {
   double rsq, r, x, y, z, z0, theta0, cs, sn;
@@ -311,6 +310,7 @@ void SNA::compute_duidrj(double* rij, double wj, double rcut)
    variant using symmetry relation
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_dbidrj()
 {
   // for j1 = 0,...,twojmax
@@ -338,8 +338,6 @@ void SNA::compute_dbidrj()
   double* dbdr;
   double* dudr_r, *dudr_i;
   double sumzdu_r[3];
-  double** jjjzarray_r;
-  double** jjjzarray_i;
   double jjjmambzarray_r;
   double jjjmambzarray_i;
 
@@ -565,6 +563,7 @@ void SNA::compute_dbidrj()
    copy Bi derivatives into a vector
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::copy_dbi2dbvec()
 {
   int ncount, j1, j2, j;
@@ -612,6 +611,7 @@ void SNA::copy_dbi2dbvec()
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team)
 {
   {
@@ -632,6 +632,7 @@ void SNA::zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team)
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::addself_uarraytot(double wself_in)
 {
   for (int j = 0; j <= twojmax; j++)
@@ -645,6 +646,7 @@ void SNA::addself_uarraytot(double wself_in)
    add Wigner U-functions for one neighbor to the total
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::add_uarraytot(double r, double wj, double rcut)
 {
   double sfac;
@@ -667,6 +669,7 @@ void SNA::add_uarraytot(double r, double wj, double rcut)
    compute Wigner U-functions for one neighbor
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_uarray(double x, double y, double z,
                          double z0, double r)
 {
@@ -747,6 +750,7 @@ void SNA::compute_uarray(double x, double y, double z,
    see comments in compute_uarray()
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::compute_duarray(double x, double y, double z,
                           double z0, double r, double dz0dr,
 			  double wj, double rcut)
@@ -909,6 +913,7 @@ void SNA::compute_duarray(double x, double y, double z,
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
 {
   int jdim = twojmax + 1;
@@ -924,6 +929,7 @@ void SNA::create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& te
 }
 
 
+inline
 T_INT SNA::size_team_scratch_arrays() {
   T_INT size = 0;
   int jdim = twojmax + 1;
@@ -943,10 +949,11 @@ T_INT SNA::size_team_scratch_arrays() {
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 void SNA::create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team)
 {
   int jdim = twojmax + 1;
-  dbvec = Kokkos::View<double*[3]>(team.thread_scratch(1),ncoeff);
+  dbvec = Kokkos::View<double*[3], Kokkos::LayoutRight>(team.thread_scratch(1),ncoeff);
   dbarray = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
 
   uarray_r = t_sna_3d(team.thread_scratch(1),jdim,jdim,jdim);
@@ -955,11 +962,11 @@ void SNA::create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& 
   duarray_i = t_sna_4d(team.thread_scratch(1),jdim,jdim,jdim);
 }
 
-
+inline
 T_INT SNA::size_thread_scratch_arrays() {
   T_INT size = 0;
   int jdim = twojmax + 1;
-  size += Kokkos::View<double*[3]>::shmem_size(ncoeff);
+  size += Kokkos::View<double*[3], Kokkos::LayoutRight>::shmem_size(ncoeff);
   size += t_sna_4d::shmem_size(jdim,jdim,jdim);
 
   size += t_sna_3d::shmem_size(jdim,jdim,jdim);
@@ -973,6 +980,7 @@ T_INT SNA::size_thread_scratch_arrays() {
    factorial n
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 double SNA::factorial(int n)
 {
   double result = 1.0;
@@ -985,6 +993,7 @@ double SNA::factorial(int n)
    the function delta given by VMK Eq. 8.2(1)
 ------------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 double SNA::deltacg(int j1, int j2, int j)
 {
   double sfaccg = factorial((j1 + j2 + j) / 2 + 1);
@@ -998,6 +1007,7 @@ double SNA::deltacg(int j1, int j2, int j)
    the quasi-binomial formula VMK 8.2.1(3)
 ------------------------------------------------------------------------- */
 
+inline
 void SNA::init_clebsch_gordan()
 {
   double sum,dcg,sfaccg;
@@ -1057,6 +1067,7 @@ void SNA::init_clebsch_gordan()
    the p = 0, q = 0 entries are allocated and skipped for convenience.
 ------------------------------------------------------------------------- */
 
+inline
 void SNA::init_rootpqarray()
 {
   for (int p = 1; p <= twojmax; p++)
@@ -1066,7 +1077,7 @@ void SNA::init_rootpqarray()
 
 
 /* ---------------------------------------------------------------------- */
-
+inline
 int SNA::compute_ncoeff()
 {
   int ncount;
@@ -1099,6 +1110,7 @@ int SNA::compute_ncoeff()
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 double SNA::compute_sfac(double r, double rcut)
 {
   if (switch_flag == 0) return 1.0;
@@ -1115,6 +1127,7 @@ double SNA::compute_sfac(double r, double rcut)
 
 /* ---------------------------------------------------------------------- */
 
+KOKKOS_INLINE_FUNCTION
 double SNA::compute_dsfac(double r, double rcut)
 {
   if (switch_flag == 0) return 0.0;
