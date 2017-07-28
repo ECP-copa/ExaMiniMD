@@ -117,7 +117,12 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
   T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
 
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
-  Kokkos::TeamPolicy<> policy(nlocal,1);
+#ifdef KOKKOS_ENABLE_CUDA
+  int team_size = max_neighs;
+#else
+  int team_size = 1;
+#endif
+  Kokkos::TeamPolicy<> policy(nlocal,team_size,4);
   Kokkos::parallel_for(policy
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
@@ -226,6 +231,7 @@ void ForceSNAP::init_coeff(int narg, char **arg)
 //#if defined(_OPENMP)
 //#pragma omp parallel default(none)
 //#endif
+  printf("Twojmax: %i\n",twojmax);
   sna = SNA(rfac0,twojmax,
             diagonalstyle,use_shared_arrays,
 		        rmin0,switchflag,bzeroflag);

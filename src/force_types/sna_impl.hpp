@@ -159,7 +159,9 @@ void SNA::compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int jnum)
 
   if(team.team_rank() == 0) {
     zero_uarraytot(team);
-    addself_uarraytot(wself);
+    //Kokkos::single(Kokkos::PerThread(team), [&] (){
+    addself_uarraytot(team,wself);
+    //});
   }
   team.team_barrier();
 
@@ -176,8 +178,10 @@ void SNA::compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int jnum)
     //    theta0 = (r - rmin0) * rscale0;
     z0 = r / tan(theta0);
 
-    compute_uarray(x, y, z, z0, r);
-    add_uarraytot(r, wj[j], rcutij[j]);
+    compute_uarray(team,x, y, z, z0, r);
+    //Kokkos::single(Kokkos::PerThread(team), [&] (){
+    add_uarraytot(team,r, wj[j], rcutij[j]);
+    //});
   });
 
 }
@@ -273,7 +277,8 @@ void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_duidrj(double* rij, double wj, double rcut)
+void SNA::compute_duidrj(const Kokkos::TeamPolicy<>::member_type& team,
+                         double* rij, double wj, double rcut)
 {
   double rsq, r, x, y, z, z0, theta0, cs, sn;
   double dz0dr;
@@ -294,7 +299,7 @@ void SNA::compute_duidrj(double* rij, double wj, double rcut)
   clock_gettime(CLOCK_REALTIME, &starttime);
 #endif
 
-  compute_duarray(x, y, z, z0, r, dz0dr, wj, rcut);
+  compute_duarray(team, x, y, z, z0, r, dz0dr, wj, rcut);
 
 #ifdef TIMING_INFO
   clock_gettime(CLOCK_REALTIME, &endtime);
@@ -311,7 +316,7 @@ void SNA::compute_duidrj(double* rij, double wj, double rcut)
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_dbidrj()
+void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
 {
   // for j1 = 0,...,twojmax
   //   for j2 = 0,twojmax
@@ -344,8 +349,9 @@ void SNA::compute_dbidrj()
 #ifdef TIMING_INFO
   clock_gettime(CLOCK_REALTIME, &starttime);
 #endif
-
-  for(int JJ = 0; JJ < idxj_max; JJ++) {
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,idxj_max),
+          [&] (const int& JJ) {
+  //for(int JJ = 0; JJ < idxj_max; JJ++) {
     const int j1 = idxj[JJ].j1;
     const int j2 = idxj[JJ].j2;
     const int j = idxj[JJ].j;
@@ -549,7 +555,7 @@ void SNA::compute_dbidrj()
     for(int k = 0; k < 3; k++)
       dbdr[k] += 2.0*sumzdu_r[k]*j2fac;
 
-  } //end loop over j1 j2 j
+  }); //end loop over j1 j2 j
 
 #ifdef TIMING_INFO
   clock_gettime(CLOCK_REALTIME, &endtime);
@@ -564,49 +570,30 @@ void SNA::compute_dbidrj()
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::copy_dbi2dbvec()
+void SNA::copy_dbi2dbvec(const Kokkos::TeamPolicy<>::member_type& team)
 {
-  int ncount, j1, j2, j;
+ /* int ncount, j1, j2, j;
 
   ncount = 0;
 
   for(j1 = 0; j1 <= twojmax; j1++) {
-    if(diagonalstyle == 0) {
-      for(j2 = 0; j2 <= j1; j2++)
-        for(j = abs(j1 - j2);
-            j <= MIN(twojmax, j1 + j2); j += 2) {
-          dbvec(ncount,0) = dbarray(j1,j2,j,0);
-          dbvec(ncount,1) = dbarray(j1,j2,j,1);
-          dbvec(ncount,2) = dbarray(j1,j2,j,2);
-          ncount++;
-        }
-    } else if(diagonalstyle == 1) {
-      j2 = j1;
-      for(j = abs(j1 - j2);
-          j <= MIN(twojmax, j1 + j2); j += 2) {
-        dbvec(ncount,0) = dbarray(j1,j2,j,0);
-        dbvec(ncount,1) = dbarray(j1,j2,j,1);
-        dbvec(ncount,2) = dbarray(j1,j2,j,2);
-        ncount++;
-      }
-    } else if(diagonalstyle == 2) {
-      j = j2 = j1;
-      dbvec(ncount,0) = dbarray(j1,j2,j,0);
-      dbvec(ncount,1) = dbarray(j1,j2,j,1);
-      dbvec(ncount,2) = dbarray(j1,j2,j,2);
-      ncount++;
-    } else if(diagonalstyle == 3) {
       for(j2 = 0; j2 <= j1; j2++)
         for(j = abs(j1 - j2);
             j <= MIN(twojmax, j1 + j2); j += 2)
-	  if (j >= j1) {
-	    dbvec(ncount,0) = dbarray(j1,j2,j,0);
-	    dbvec(ncount,1) = dbarray(j1,j2,j,1);
-	    dbvec(ncount,2) = dbarray(j1,j2,j,2);
-	    ncount++;
-	  }
-    }
-  }
+	  if (j >= j1) {*/
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,idxj_max),
+          [&] (const int& JJ) {
+  //for(int JJ = 0; JJ < idxj_max; JJ++) {
+    const int j1 = idxj[JJ].j1;
+    const int j2 = idxj[JJ].j2;
+    const int j = idxj[JJ].j;
+
+	    dbvec(JJ,0) = dbarray(j1,j2,j,0);
+	    dbvec(JJ,1) = dbarray(j1,j2,j,1);
+	    dbvec(JJ,2) = dbarray(j1,j2,j,2);
+	    //ncount++;
+	  //});
+  });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -633,13 +620,16 @@ void SNA::zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team)
 /* ---------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::addself_uarraytot(double wself_in)
+void SNA::addself_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double wself_in)
 {
-  for (int j = 0; j <= twojmax; j++)
+  //for (int j = 0; j <= twojmax; j++)
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,twojmax+1),
+    [&] (const int& j) {
     for (int ma = 0; ma <= j; ma++) {
       uarraytot_r(j,ma,ma) = wself_in;
       uarraytot_i(j,ma,ma) = 0.0;
     }
+  });
 }
 
 /* ----------------------------------------------------------------------
@@ -647,14 +637,11 @@ void SNA::addself_uarraytot(double wself_in)
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::add_uarraytot(double r, double wj, double rcut)
+void SNA::add_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double r, double wj, double rcut)
 {
-  double sfac;
+  const double sfac = compute_sfac(r, rcut) * wj;
 
-  sfac = compute_sfac(r, rcut);
-
-  sfac *= wj;
-
+/*
   for (int j = 0; j <= twojmax; j++)
     for (int ma = 0; ma <= j; ma++)
       for (int mb = 0; mb <= j; mb++) {
@@ -662,7 +649,16 @@ void SNA::add_uarraytot(double r, double wj, double rcut)
           sfac * uarray_r(j,ma,mb);
         uarraytot_i_a(j,ma,mb) +=
           sfac * uarray_i(j,ma,mb);
-      }
+      }*/
+  const double* const ptr_r = uarray_r.data();
+  const double* const ptr_i = uarray_i.data();
+  double* const ptrtot_r = uarraytot_r.data();
+  double* const ptrtot_i = uarraytot_i.data();
+  Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,uarraytot_r.span()),
+      [&] (const int& i) {
+    Kokkos::atomic_add(ptrtot_r+i, sfac * ptr_r[i]);
+    Kokkos::atomic_add(ptrtot_i+i, sfac * ptr_i[i]);
+  });
 }
 
 /* ----------------------------------------------------------------------
@@ -670,7 +666,8 @@ void SNA::add_uarraytot(double r, double wj, double rcut)
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_uarray(double x, double y, double z,
+void SNA::compute_uarray(const Kokkos::TeamPolicy<>::member_type& team,
+                         double x, double y, double z,
                          double z0, double r)
 {
   double r0inv;
@@ -694,7 +691,10 @@ void SNA::compute_uarray(double x, double y, double z,
 
     // fill in left side of matrix layer from previous layer
 
-    for (int mb = 0; 2*mb <= j; mb++) {
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+2)/2),
+        [&] (const int& mb) {
+      //const int mb = 2*mb_2;
+    //for (int mb = 0; 2*mb <= j; mb++) {
       uarray_r(j,0,mb) = 0.0;
       uarray_i(j,0,mb) = 0.0;
 
@@ -719,14 +719,16 @@ void SNA::compute_uarray(double x, double y, double z,
           (b_r * uarray_i(j - 1,ma,mb) -
 	   b_i * uarray_r(j - 1,ma,mb));
       }
-    }
+    });
 
     // copy left side to right side with inversion symmetry VMK 4.4(2)
     // u[ma-j,mb-j] = (-1)^(ma-mb)*Conj([u[ma,mb))
 
-    int mbpar = -1;
-    for (int mb = 0; 2*mb <= j; mb++) {
-      mbpar = -mbpar;
+    //int mbpar = -1;
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+2)/2),
+        [&] (const int& mb) {
+//    for (int mb = 0; 2*mb <= j; mb++) {
+      int mbpar = (mb)%2==0?1:-1;
       int mapar = -mbpar;
       for (int ma = 0; ma <= j; ma++) {
     	mapar = -mapar;
@@ -740,7 +742,7 @@ void SNA::compute_uarray(double x, double y, double z,
     	//OK
     	//printf("%lf %lf %lf %lf %lf %lf %lf SNAP-COMPARE: UARRAY\n",x,y,z,z0,r,uarray_r(j,ma,mb),uarray_i(j,ma,mb));
       }
-    }
+    });
   }
 }
 
@@ -751,7 +753,8 @@ void SNA::compute_uarray(double x, double y, double z,
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_duarray(double x, double y, double z,
+void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
+                          double x, double y, double z,
                           double z0, double r, double dz0dr,
 			  double wj, double rcut)
 {
@@ -807,7 +810,10 @@ void SNA::compute_duarray(double x, double y, double z,
   duarray_i(0,0,0,2) = 0.0;
 
   for (int j = 1; j <= twojmax; j++) {
-    for (int mb = 0; 2*mb <= j; mb++) {
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+2)/2),
+        [&] (const int& mb) {
+
+    //for (int mb = 0; 2*mb <= j; mb++) {
       uarray_r(j,0,mb) = 0.0;
       duarray_r(j,0,mb,0) = 0.0;
       duarray_r(j,0,mb,1) = 0.0;
@@ -860,11 +866,13 @@ void SNA::compute_duarray(double x, double y, double z,
                        b_i * duarray_r(j - 1,ma,mb,k));
         }
       }
-    }
+    });
 
-    int mbpar = -1;
-    for (int mb = 0; 2*mb <= j; mb++) {
-      mbpar = -mbpar;
+    //int mbpar = -1;
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+2)/2),
+        [&] (const int& mb) {
+//    for (int mb = 0; 2*mb <= j; mb++) {
+      int mbpar = (mb)%2==0?1:-1;
       int mapar = -mbpar;
       for (int ma = 0; ma <= j; ma++) {
     	mapar = -mapar;
@@ -884,7 +892,7 @@ void SNA::compute_duarray(double x, double y, double z,
     	  }
     	}
       }
-    }
+    });
   }
 
   double sfac = compute_sfac(r, rcut);

@@ -214,12 +214,14 @@ public:
         [&] (const int jj) {
     //for (int jj = 0; jj < ninside; jj++) {
       int j = my_sna.inside[jj];
-      my_sna.compute_duidrj(&my_sna.rij(jj,0),
+      my_sna.compute_duidrj(team,&my_sna.rij(jj,0),
                              my_sna.wj[jj],my_sna.rcutij[jj]);
 
-      my_sna.compute_dbidrj();
-      my_sna.copy_dbi2dbvec();
+      my_sna.compute_dbidrj(team);
+      my_sna.copy_dbi2dbvec(team);
 
+
+      Kokkos::single(Kokkos::PerThread(team), [&] (){
       T_F_FLOAT fij[3];
 
       fij[0] = 0.0;
@@ -252,6 +254,7 @@ public:
       f(j,0) -= fij[0];
       f(j,1) -= fij[1];
       f(j,2) -= fij[2];
+      });
     });
   }
 };

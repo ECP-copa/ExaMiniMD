@@ -68,11 +68,11 @@ public:
   // functions for derivatives
 
   KOKKOS_INLINE_FUNCTION
-  void compute_duidrj(double*, double, double); //ForceSNAP
+  void compute_duidrj(const Kokkos::TeamPolicy<>::member_type& team, double*, double, double); //ForceSNAP
   KOKKOS_INLINE_FUNCTION
-  void compute_dbidrj(); //ForceSNAP
+  void compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team); //ForceSNAP
   KOKKOS_INLINE_FUNCTION
-  void copy_dbi2dbvec(); //ForceSNAP
+  void copy_dbi2dbvec(const Kokkos::TeamPolicy<>::member_type& team); //ForceSNAP
   KOKKOS_INLINE_FUNCTION
   double compute_sfac(double, double); // add_uarraytot, compute_duarray
   KOKKOS_INLINE_FUNCTION
@@ -140,19 +140,21 @@ private:
   KOKKOS_INLINE_FUNCTION
   void zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team);      // compute_ui
   KOKKOS_INLINE_FUNCTION
-  void addself_uarraytot(double); // compute_ui
+  void addself_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double); // compute_ui
   KOKKOS_INLINE_FUNCTION
-  void add_uarraytot(double, double, double); // compute_ui
+  void add_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double, double, double); // compute_ui
 
   KOKKOS_INLINE_FUNCTION
-  void compute_uarray(double, double, double,
+  void compute_uarray(const Kokkos::TeamPolicy<>::member_type& team,
+                      double, double, double,
                       double, double); // compute_ui
   KOKKOS_INLINE_FUNCTION
   double deltacg(int, int, int);  // init_clebsch_gordan
   inline
   int compute_ncoeff();           // SNA()
   KOKKOS_INLINE_FUNCTION
-  void compute_duarray(double, double, double, // compute_duidrj
+  void compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
+                       double, double, double, // compute_duidrj
                        double, double, double, double, double);
 
   // if number of atoms are small use per atom arrays
