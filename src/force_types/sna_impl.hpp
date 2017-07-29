@@ -104,6 +104,9 @@ void SNA::build_indexlist()
 
     idxj = Kokkos::View<SNA_LOOPINDICES*>("SNA::idxj",idxj_count);
     idxj_full = Kokkos::View<SNA_LOOPINDICES*>("SNA::idxj_full",idxj_full_count);
+    auto h_idxj = Kokkos::create_mirror_view(idxj);
+    auto h_idxj_full = Kokkos::create_mirror_view(idxj_full);
+
     idxj_max = idxj_count;
     idxj_full_max = idxj_full_count;
 
@@ -114,16 +117,19 @@ void SNA::build_indexlist()
       for(int j2 = 0; j2 <= j1; j2++)
         for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2) {
           if (j >= j1) {
-            idxj[idxj_count].j1 = j1;
-            idxj[idxj_count].j2 = j2;
-            idxj[idxj_count].j = j;
+            h_idxj[idxj_count].j1 = j1;
+            h_idxj[idxj_count].j2 = j2;
+            h_idxj[idxj_count].j = j;
             idxj_count++;
           }
-          idxj_full[idxj_full_count].j1 = j1;
-          idxj_full[idxj_full_count].j2 = j2;
-          idxj_full[idxj_full_count].j = j;
+          h_idxj_full[idxj_full_count].j1 = j1;
+          h_idxj_full[idxj_full_count].j2 = j2;
+          h_idxj_full[idxj_full_count].j = j;
           idxj_full_count++;
         }
+    Kokkos::deep_copy(idxj,h_idxj);
+    Kokkos::deep_copy(idxj_full,h_idxj_full);
+
   }
 
 }
@@ -1021,6 +1027,7 @@ void SNA::init_clebsch_gordan()
   double sum,dcg,sfaccg;
   int m, aa2, bb2, cc2;
   int ifac;
+  auto h_cgarray = Kokkos::create_mirror_view(cgarray);
 
   for (int j1 = 0; j1 <= twojmax; j1++)
     for (int j2 = 0; j2 <= twojmax; j2++)
@@ -1064,10 +1071,11 @@ void SNA::init_clebsch_gordan()
 			factorial((j  - cc2) / 2) *
 			(j + 1));
 
-	    cgarray(j1,j2,j,m1,m2) = sum * dcg * sfaccg;
+	    h_cgarray(j1,j2,j,m1,m2) = sum * dcg * sfaccg;
 	    //printf("SNAP-COMPARE: CG: %i %i %i %i %i %e\n",j1,j2,j,m1,m2,cgarray(j1,j2,j,m1,m2));
 	  }
 	}
+  Kokkos::deep_copy(cgarray,h_cgarray);
 }
 
 /* ----------------------------------------------------------------------
@@ -1078,9 +1086,11 @@ void SNA::init_clebsch_gordan()
 inline
 void SNA::init_rootpqarray()
 {
+  auto h_rootpqarray = Kokkos::create_mirror_view(rootpqarray);
   for (int p = 1; p <= twojmax; p++)
     for (int q = 1; q <= twojmax; q++)
-      rootpqarray(p,q) = sqrt(static_cast<double>(p)/q);
+      h_rootpqarray(p,q) = sqrt(static_cast<double>(p)/q);
+  Kokkos::deep_copy(rootpqarray,h_rootpqarray);
 }
 
 

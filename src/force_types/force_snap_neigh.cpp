@@ -87,6 +87,19 @@ ForceSNAP::~ForceSNAP()
   }*/
 }
 
+template<class NeighList>
+struct FindMaxNumNeighs {
+  NeighList neigh_list;
+
+  FindMaxNumNeighs(NeighList& nl): neigh_list(nl) {}  
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const int& i, int& max_neighs) const {
+    typename NeighList::t_neighs neighs_i = neigh_list.get_neighs(i);
+    const int num_neighs = neighs_i.get_num_neighs();
+    if(max_neighs<num_neighs) max_neighs = num_neighs;
+  }
+};
 /* ----------------------------------------------------------------------
    This version is a straightforward implementation
    ---------------------------------------------------------------------- */
@@ -104,12 +117,13 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
   NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
   neigh_list = neighbor->get_neigh_list();
   int max_neighs = 0;
-
+  /*
   for (int i = 0; i < nlocal; i++) {
     typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
     const int num_neighs = neighs_i.get_num_neighs();
     if(max_neighs<num_neighs) max_neighs = num_neighs;
-  }
+  }*/
+  Kokkos::parallel_reduce(nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Experimental::Max<int>(max_neighs));
 
   sna.nmax = max_neighs;
 
@@ -212,6 +226,7 @@ void ForceSNAP::init_coeff(int narg, char **arg)
   // map[i] = which element the Ith atom type is, -1 if not mapped
   // map[0] is not used
 
+  auto h_map = Kokkos::create_mirror_view(map);
   for (int i = 1; i <= system->ntypes; i++) {
     char* elemname = elemtypes[i-1];
     int jelem;
@@ -220,11 +235,12 @@ void ForceSNAP::init_coeff(int narg, char **arg)
 	break;
 
     if (jelem < nelements)
-      map[i] = jelem;
-    else if (strcmp(elemname,"NULL") == 0) map[i] = -1;
+      h_map[i] = jelem;
+    else if (strcmp(elemname,"NULL") == 0) h_map[i] = -1;
     else Kokkos::abort("Incorrect args for pair coefficients");
   }
 
+  Kokkos::deep_copy(map,h_map);
   // allocate memory for per OpenMP thread data which
   // is wrapped into the sna class
 
@@ -246,10 +262,11 @@ void ForceSNAP::init_coeff(int narg, char **arg)
   }
 
   // Calculate maximum cutoff for all elements
-
+  auto h_radelem = Kokkos::create_mirror_view(radelem);
+  Kokkos::deep_copy(h_radelem,radelem);
   rcutmax = 0.0;
   for (int ielem = 0; ielem < nelements; ielem++) {
-    rcutmax = MAX(2.0*radelem[ielem]*rcutfac,rcutmax);
+    rcutmax = MAX(2.0*h_radelem[ielem]*rcutfac,rcutmax);
   }
   Kokkos::deep_copy(cutsq,rcutmax*rcutmax);
   rnd_cutsq = cutsq;
@@ -374,8 +391,12 @@ void ForceSNAP::read_files(char *coefffilename, char *paramfilename)
     }
 
     found[ielem] = 1;
-    radelem[ielem] = radtmp;
-    wjelem[ielem] = wjtmp;
+    auto radelem_i = Kokkos::subview(radelem,ielem);
+    Kokkos::deep_copy(radelem,radtmp);
+    auto wjelem_i = Kokkos::subview(wjelem,ielem);
+    Kokkos::deep_copy(wjelem,wjtmp);
+//    radelem[ielem] = radtmp;
+//    wjelem[ielem] = wjtmp;
 
 
     //if (comm->me == 0) {
@@ -405,7 +426,9 @@ void ForceSNAP::read_files(char *coefffilename, char *paramfilename)
       iword = 0;
       words[iword] = strtok(line,"' \t\n\r\f");
 
-      coeffelem(ielem,icoeff) = atof(words[0]);
+      //coeffelem(ielem,icoeff) = atof(words[0]);
+      auto coeffelem_ii = Kokkos::subview(coeffelem,ielem,icoeff);
+      Kokkos::deep_copy(coeffelem_ii,atof(words[0]));
 
     }
   }
