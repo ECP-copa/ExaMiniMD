@@ -41,6 +41,9 @@ class CommMPI: public Comm {
   int proc_rank;         // My Process rank
   int proc_size;         // Number of processes
 
+  T_INT num_ghost[6];
+  T_INT ghost_offsets[6];
+
   T_INT num_packed;
   Kokkos::View<int, Kokkos::MemoryTraits<Kokkos::Atomic> > pack_count;
   Kokkos::View<Particle*> pack_buffer;
@@ -69,6 +72,8 @@ public:
   struct TagHaloUpdateUnpack {};
 
   struct TagHaloForceSelf {};
+  struct TagHaloForcePack {};
+  struct TagHaloForceUnpack {};
 
   struct TagPermuteIndexList {};
 
@@ -416,13 +421,37 @@ public:
                    const T_INT& ii) const {
 
     const T_INT i = pack_indicies(ii);
-    T_F_FLOAT fx_i = s.f(N_local + N_ghost + ii,0);
-    T_F_FLOAT fy_i = s.f(N_local + N_ghost + ii,1);
-    T_F_FLOAT fz_i = s.f(N_local + N_ghost + ii,2);
+    T_F_FLOAT fx_i = s.f(ghost_offsets[phase] + ii,0);
+    T_F_FLOAT fy_i = s.f(ghost_offsets[phase] + ii,1);
+    T_F_FLOAT fz_i = s.f(ghost_offsets[phase] + ii,2);
 
     s.f(i, 0) += fx_i;
     s.f(i, 1) += fy_i;
     s.f(i, 2) += fz_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForcePack,
+                   const T_INT& ii) const {
+
+    T_F_FLOAT fx_i = s.f(ghost_offsets[phase] + ii,0);
+    T_F_FLOAT fy_i = s.f(ghost_offsets[phase] + ii,1);
+    T_F_FLOAT fz_i = s.f(ghost_offsets[phase] + ii,2);
+
+    unpack_buffer_update(ii, 0) = fx_i;
+    unpack_buffer_update(ii, 1) = fy_i;
+    unpack_buffer_update(ii, 2) = fz_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForceUnpack,
+                   const T_INT& ii) const {
+
+    const T_INT i = pack_indicies(ii);
+
+    s.f(i, 0) += pack_buffer_update(ii, 0);
+    s.f(i, 1) += pack_buffer_update(ii, 1);
+    s.f(i, 2) += pack_buffer_update(ii, 2);
   }
 
   const char* name();

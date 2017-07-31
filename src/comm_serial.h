@@ -26,7 +26,7 @@ class CommSerial: public Comm {
   // Owned Variables
 
   int phase; // Communication Phase
-  int num_ghost[6];
+  T_INT num_ghost[6];
 
   T_INT ghost_offsets[6];
 

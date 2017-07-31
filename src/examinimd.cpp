@@ -91,6 +91,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     neighbor->create_neigh_list(system,binning,force->half_neigh,false);
 
   // Compute initial forces
+  Kokkos::deep_copy(system->f,0.0);
   force->compute(system,binning,neighbor);
 
   // Reverse Communicate Force Update on Halo
