@@ -167,7 +167,9 @@ void ExaMiniMD::run(int nsteps) {
     // This is where Bonds, Angles and KSpace should go eventually 
     
     // Reverse Communicate Force Update on Halo
+    comm_timer.reset();
     comm->update_force();
+    comm_time += comm_timer.seconds();
 
     // Do second part of the verlet time step integration 
     other_timer.reset();
