@@ -9,7 +9,7 @@ units		metal
 #boundary	p p p
 
 lattice         sc 3.1803
-region		box block 0 4 0 4 0 4
+region		box block 0 4 0 8 0 8
 create_box	1 box
 create_atoms	1 box
 

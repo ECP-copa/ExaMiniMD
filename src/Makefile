@@ -6,7 +6,7 @@ KOKKOS_DEVICES=Serial
 KOKKOS_ARCH = "SNB,Kepler35"
 
 #MPI On or off (1/0)
-MPI = 0
+MPI = 1
 
 
 default: build
