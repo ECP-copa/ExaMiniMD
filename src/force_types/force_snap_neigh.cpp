@@ -123,7 +123,7 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
     const int num_neighs = neighs_i.get_num_neighs();
     if(max_neighs<num_neighs) max_neighs = num_neighs;
   }*/
-  Kokkos::parallel_reduce(nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Experimental::Max<int>(max_neighs));
+  Kokkos::parallel_reduce("ForceSNAP::find_max_neighs",nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Experimental::Max<int>(max_neighs));
 
   sna.nmax = max_neighs;
 
@@ -142,7 +142,7 @@ void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
 #endif
   Kokkos::TeamPolicy<> policy(nlocal,team_size,vector_length);
 
-  Kokkos::parallel_for(policy
+  Kokkos::parallel_for("ForceSNAP::compute",policy
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
     ,*this);
