@@ -65,6 +65,11 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   else if(system->do_print)
     printf("Error: Invalid CommType\n");
 
+  // Do some additional settings
+  force->comm_newton = input->comm_newton;
+  if(neighbor)
+    neighbor->comm_newton = input->comm_newton;
+
   // system->print_particles();
   if(system->do_print) {
     printf("Using: %s %s %s %s\n",force->name(),neighbor->name(),comm->name(),binning->name());
@@ -74,6 +79,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   if(system->N == 0)
     input->create_lattice(comm);
 
+  // Create the Halo
   comm->exchange(); 
 
   // Sort particles
@@ -94,8 +100,10 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   Kokkos::deep_copy(system->f,0.0);
   force->compute(system,binning,neighbor);
 
-  // Reverse Communicate Force Update on Halo
-  comm->update_force();
+  if(input->comm_newton) {
+    // Reverse Communicate Force Update on Halo
+    comm->update_force();
+  }
 
 }
 
@@ -167,9 +175,11 @@ void ExaMiniMD::run(int nsteps) {
     // This is where Bonds, Angles and KSpace should go eventually 
     
     // Reverse Communicate Force Update on Halo
-    comm_timer.reset();
-    comm->update_force();
-    comm_time += comm_timer.seconds();
+    if(input->comm_newton) {
+      comm_timer.reset();
+      comm->update_force();
+      comm_time += comm_timer.seconds();
+    }
 
     // Do second part of the verlet time step integration 
     other_timer.reset();

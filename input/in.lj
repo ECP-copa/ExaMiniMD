@@ -18,5 +18,6 @@ neighbor	0.3 bin
 neigh_modify delay 0 every 20 check no
 fix		1 all nve
 thermo 10
+newton off
 
 run		100

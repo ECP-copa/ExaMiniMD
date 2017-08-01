@@ -119,6 +119,7 @@ public:
 
   int comm_type;
   int comm_exchange_rate;
+  int comm_newton;
 
   int force_type;
   int force_iteration_type;

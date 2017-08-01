@@ -227,7 +227,7 @@ public:
              const T_F_FLOAT x_j = x(j,0);
              const T_F_FLOAT y_j = x(j,1);
              const T_F_FLOAT z_j = x(j,2);
-             if( (j<N_local) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
+             if( ((j==i) || (j<N_local || comm_newton==true)) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
                return;
              const T_F_FLOAT dx = x_i - x_j;
              const T_F_FLOAT dy = y_i - y_j;
@@ -279,7 +279,7 @@ public:
              const T_F_FLOAT x_j = x(j,0);
              const T_F_FLOAT y_j = x(j,1);
              const T_F_FLOAT z_j = x(j,2);
-             if( (j<N_local) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
+             if( ((j==i) || (j<N_local || comm_newton==true)) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
                return;
              const T_F_FLOAT dx = x_i - x_j;
              const T_F_FLOAT dy = y_i - y_j;

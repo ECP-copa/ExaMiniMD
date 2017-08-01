@@ -107,6 +107,8 @@ struct FindMaxNumNeighs {
 void ForceSNAP::compute(System* system, Binning* binning, Neighbor* neighbor_)
 {
 
+  if(comm_newton == false)
+    Kokkos::abort("ForceSNAP requires 'newton on'");
   x = system->x;
   f = system->f;
   type = system->type;
@@ -249,10 +251,7 @@ void ForceSNAP::init_coeff(int narg, char **arg)
   // allocate memory for per OpenMP thread data which
   // is wrapped into the sna class
 
-//#if defined(_OPENMP)
-//#pragma omp parallel default(none)
-//#endif
-  printf("Twojmax: %i\n",twojmax);
+
   sna = SNA(rfac0,twojmax,
             diagonalstyle,use_shared_arrays,
 		        rmin0,switchflag,bzeroflag);

@@ -94,6 +94,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
   force_iteration_type = FORCE_ITER_NEIGH_FULL;
   binning_type = BINNING_KKSORT;
   comm_exchange_rate = 20;
+  comm_newton = 0;
 }
 
 void Input::read_command_line_args(int argc, char* argv[]) {
@@ -109,6 +110,8 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("                              for force calculations (CELL_FULL, NEIGH_FULL, NEIGH_HALF)\n");
         printf("  --comm-type [TYPE]:         Specify Communication Routines implementation \n");
         printf("                              (MPI, SERIAL)\n");
+        printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
+        printf("                              (CSR, CSR_MAPCONSTR)\n");
       }
       continue;
     }
@@ -340,6 +343,17 @@ void Input::check_lammps_command(int line) {
   if(strcmp(input_data.words[line][0],"thermo")==0) {
     known = true;
     thermo_rate = atoi(input_data.words[line][1]);
+  }
+  if(strcmp(input_data.words[line][0],"newton")==0) {
+    known = true;
+    if(strcmp(input_data.words[line][1],"on")==0) {
+      comm_newton=1;
+    } else if(strcmp(input_data.words[line][1],"off")==0) {
+      comm_newton=0;
+    } else {
+      if(system->do_print)
+        printf("LAMMPS-Command: 'newton' must be followed by 'on' or 'off'\n");
+    }
   }
   if(input_data.words[line][0][0]=='#') {
     known = true;

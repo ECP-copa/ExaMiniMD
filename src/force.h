@@ -7,7 +7,7 @@
 
 class Force {
 public:
-  bool half_neigh;
+  bool half_neigh, comm_newton;
   Force(char** args, System* system, bool half_neigh_);
 
   virtual void init_coeff(int nargs, char** args);

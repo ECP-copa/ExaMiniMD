@@ -7,6 +7,7 @@
 class Neighbor {
 public:
   int neigh_type;
+  bool comm_newton;
   Neighbor();
   virtual ~Neighbor();
   typedef Kokkos::View<int**> t_neigh_list;

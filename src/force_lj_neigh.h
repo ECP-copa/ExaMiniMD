@@ -111,7 +111,6 @@ public:
     T_F_FLOAT fxi = 0.0;
     T_F_FLOAT fyi = 0.0;
     T_F_FLOAT fzi = 0.0;
-//printf("NUMNEIGHS: %i %i\n",i,num_neighs);
     for(int jj = 0; jj < num_neighs; jj++) {
       T_INT j = neighs_i(jj);
       const T_F_FLOAT dx = x_i - x(j,0);
@@ -129,11 +128,9 @@ public:
         fxi += dx*fpair;
         fyi += dy*fpair;
         fzi += dz*fpair;
-        if(j<N_local) {
-          f_a(j,0) -= dx*fpair;
-          f_a(j,1) -= dy*fpair;
-          f_a(j,2) -= dz*fpair;
-        }
+        f_a(j,0) -= dx*fpair;
+        f_a(j,1) -= dy*fpair;
+        f_a(j,2) -= dz*fpair;
       }
     }
     f_a(i,0) += fxi;
