@@ -43,8 +43,8 @@ private:
       Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_fparams_rnd;
   t_fparams lj1,lj2,cutsq;
   t_fparams_rnd rnd_lj1,rnd_lj2,rnd_cutsq;
-  typedef typename NeighborClass::t_neigh_list t_neigh_list;
 
+  typedef typename NeighborClass::t_neigh_list t_neigh_list;
   t_neigh_list neigh_list;
 
 public:
@@ -69,9 +69,10 @@ public:
   const char* name();
 };
 
-#define FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighType) ForceLJNeigh<NeighType>
 #define FORCE_MODULES_EXTERNAL_TEMPLATE
+#define FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighType) ForceLJNeigh<NeighType>
 #include<modules_neighbor.h>
+#undef FORCETYPE_DECLARE_TEMPLATE_MACRO
 #undef FORCE_MODULES_EXTERNAL_TEMPLATE
 #endif
 #endif
