@@ -14,7 +14,7 @@
       if( (strcmp(argv[i+1], "NEIGH_FULL") == 0) )
         force_iteration_type = FORCE_ITER_NEIGH_FULL;
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef FORCE_MODULES_INSTANTIATION
     else if ((input->force_type == FORCE_SNAP) && (input->force_iteration_type == FORCE_ITER_NEIGH_FULL)) {
       force = new ForceSNAP(input->input_data.words[input->force_line],system,false);
     }
@@ -24,7 +24,7 @@
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(FORCE_MODULES_INSTANTIATION)
 
 #ifndef FORCE_SNAP_NEIGH_H
 #define FORCE_SNAP_NEIGH_H

@@ -5,7 +5,7 @@
         force_iteration_type = FORCE_ITER_NEIGH_HALF;
       }
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef FORCE_MODULES_INSTANTIATION
     else if ((input->force_type == FORCE_LJ_IDIAL) && (input->force_iteration_type == FORCE_ITER_NEIGH_FULL)) {
       force = new ForceLJIDialNeigh(input->input_data.words[input->force_line],system,false);
     }
@@ -15,7 +15,7 @@
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(FORCE_MODULES_INSTANTIATION)
 
 #ifndef FORCE_LJ_IDIAL_NEIGH_H
 #define FORCE_LJ_IDIAL_NEIGH_H

@@ -35,9 +35,9 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Create Force Type
   if(false) {}
-#define MODULES_INSTANTIATION
+#define FORCE_MODULES_INSTANTIATION
 #include<modules_force.h>
-#undef MODULES_INSTANTIATION
+#undef FORCE_MODULES_INSTANTIATION
   else if(system->do_print) {
     printf("Error: Invalid ForceType\n");
     exit(0);
@@ -51,17 +51,17 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Create Neighbor Instance
   if (false) {}
-#define MODULES_INSTANTIATION
+#define NEIGHBOR_MODULES_INSTANTIATION
 #include<modules_neighbor.h>
-#undef MODULES_INSTANTIATION
+#undef NEIGHBOR_MODULES_INSTANTIATION
   else if(system->do_print)
     printf("Error: Invalid NeighborType\n");
 
   // Create Communication Submodule
   if (false) {}
-#define MODULES_INSTANTIATION
+#define COMM_MODULES_INSTANTIATION
 #include<modules_comm.h>
-#undef MODULES_INSTANTIATION
+#undef COMM_MODULES_INSTANTIATION
   else if(system->do_print)
     printf("Error: Invalid CommType\n");
 

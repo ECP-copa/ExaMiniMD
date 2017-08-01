@@ -2,14 +2,14 @@
       if( (strcmp(argv[i+1], "SERIAL") == 0) )
         comm_type = COMM_SERIAL;
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef COMM_MODULES_INSTANTIATION
       else if(input->comm_type == COMM_SERIAL) {
         comm = new CommSerial(system,input->force_cutoff + input->neighbor_skin);
       }
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(COMM_MODULES_INSTANTIATION)
 #ifndef COMM_SERIAL_H
 #define COMM_SERIAL_H
 #include<comm.h>

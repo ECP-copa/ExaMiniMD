@@ -1,16 +1,38 @@
+// Runtime Check for this Neighbor Class
 #ifdef MODULES_OPTION_CHECK
       if( (strcmp(argv[i+1], "CSR") == 0) )
         neighbor_type = NEIGH_CSR;
 #endif
-#ifdef MODULES_INSTANTIATION
+
+// Instantiation and Init of this class
+#ifdef NEIGHBOR_MODULES_INSTANTIATION
     else if (input->neighbor_type == NEIGH_CSR) {
       neighbor = new NeighborCSR<t_neigh_mem_space>();
       neighbor->init(input->force_cutoff + input->neighbor_skin);
     }
 #endif
 
+// Add Force Instantiation case
+#if defined(FORCE_MODULES_INSTANTIATION)
+      case NEIGH_CSR: force = new FORCETYPE_ALLOCATION_MACRO(NeighborCSR<t_neigh_mem_space>); break;
+#endif
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+// Add Force declaration line
+#if defined(FORCE_MODULES_EXTERNAL_TEMPLATE)
+      extern template class FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighborCSR<t_neigh_mem_space>);
+#endif
+
+// Add Force Template Instantiation line
+#if defined(FORCE_MODULES_TEMPLATE)
+      template class FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighborCSR<t_neigh_mem_space>);
+#endif
+
+// Making sure we are not just instantiating some Option
+#if !defined(MODULES_OPTION_CHECK) && \
+    !defined(NEIGHBOR_MODULES_INSTANTIATION) && \
+    !defined(FORCE_MODULES_INSTANTIATION) && \
+    !defined(FORCE_MODULES_EXTERNAL_TEMPLATE) && \
+    !defined(FORCE_MODULES_TEMPLATE)
 #include <neighbor.h>
 #ifndef NEIGHBOR_CSR_H
 #define NEIGHBOR_CSR_H
@@ -378,9 +400,11 @@ public:
   const char* name() {return "NeighborCSR";}
 };
 
-#ifdef KOKKOS_ENABLE_CUDA
-extern template struct NeighborCSR<typename Kokkos::Cuda::memory_space>;
-#endif
-extern template struct NeighborCSR<Kokkos::HostSpace>;
+template<>
+struct NeighborAdaptor<NEIGH_CSR> {
+  typedef NeighborCSR<t_neigh_mem_space> type;
+};
+
+extern template struct NeighborCSR<t_neigh_mem_space>;
 #endif // #define NEIGHBOR_CSR_H
 #endif // MODULES_OPTION_CHECK / MODULES_INSTANTIATION

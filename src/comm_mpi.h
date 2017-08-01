@@ -2,14 +2,14 @@
    if( (strcmp(argv[i+1], "MPI") == 0) )
      comm_type = COMM_MPI;
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef COMM_MODULES_INSTANTIATION
    else if(input->comm_type == COMM_MPI) {
      comm = new CommMPI(system,input->force_cutoff + input->neighbor_skin);
    }
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(COMM_MODULES_INSTANTIATION)
 #ifndef COMM_MPI_H
 #define COMM_MPI_H
 #include<comm.h>

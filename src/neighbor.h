@@ -17,6 +17,11 @@ public:
   virtual const char* name();
 };
 
+template<int Type>
+struct NeighborAdaptor {
+  typedef Neighbor type;
+};
+
 #include <modules_neighbor.h>
 
 #endif
