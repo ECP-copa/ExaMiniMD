@@ -4,6 +4,7 @@
 
 units		metal
 
+newton 		on
 # generate the box and atom positions using a BCC lattice
 
 lattice         sc 3.1803
@@ -15,10 +16,9 @@ mass 1 183.84
 
 # SNAP W without pair hybrid zbl
 
-pair_style snap optimized 0
+pair_style snap optimized 1
 pair_coeff * * W.snapcoeff W W.snapparam W
 
-newton 		on
 
 # Setup output
 

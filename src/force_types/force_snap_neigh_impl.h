@@ -119,7 +119,7 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
 
   //class SNA* snaptr = sna[0];
 
-  NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
+  NeighborClass* neighbor = (NeighborClass*) neighbor_;
   neigh_list = neighbor->get_neigh_list();
   int max_neighs = 0;
   /*

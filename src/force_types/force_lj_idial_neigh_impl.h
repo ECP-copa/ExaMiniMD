@@ -51,13 +51,8 @@ void ForceLJIDialNeigh<NeighborClass>::init_coeff(int nargs, char** args) {
 template<class NeighborClass>
 void ForceLJIDialNeigh<NeighborClass>::compute(System* system, Binning* binning, Neighbor* neighbor_ ) {
   // Set internal data handles
-  if(neighbor_->neigh_type == NEIGH_CSR) {
-    NeighborCSR<t_neigh_mem_space>* neighbor = (NeighborCSR<t_neigh_mem_space>*) neighbor_;
-    neigh_list = neighbor->get_neigh_list();
-  } else if(neighbor_->neigh_type == NEIGH_CSR_MAPCONSTR) {
-    NeighborCSRMapConstr<t_neigh_mem_space>* neighbor = (NeighborCSRMapConstr<t_neigh_mem_space>*) neighbor_;
-    neigh_list = neighbor->get_neigh_list();
-  }
+  NeighborClass* neighbor = (NeighborClass*) neighbor_;
+  neigh_list = neighbor->get_neigh_list();
 
   N_local = system->N_local;
   x = system->x;
