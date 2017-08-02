@@ -1,1 +1,0 @@
-force_types/force_snap_neigh.cpp

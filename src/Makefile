@@ -12,6 +12,7 @@ MPI = 1
 default: build
 	echo "Start Build"
 
+vpath %.cpp force_types
 
 EXE = ExaMiniMD
 CXXFLAGS = -O3 -g
@@ -34,10 +35,12 @@ KOKKOS_OPTIONS=aggressive_vectorization
 
 DEPFLAGS = -M
 
-SRC = $(wildcard *.cpp)
-HEADERS = $(wildcard *.h)
+SRC = $(wildcard *.cpp) $(wildcard force_types/*.cpp)
+HEADERS = $(wildcard *.h) $(wildcard force_types/*.h)
+CXXFLAGS += -Iforce_types
 
-OBJ = $(SRC:.cpp=.o)
+SRC_NOTDIR = $(notdir $(SRC))
+OBJ = $(SRC_NOTDIR:.cpp=.o)
 LIB =
 
 include $(KOKKOS_PATH)/Makefile.kokkos
