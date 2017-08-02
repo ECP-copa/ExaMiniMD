@@ -1,13 +1,15 @@
 #Kokkos root path
-KOKKOS_PATH = ${HOME}/kokkos
+KOKKOS_PATH = ${HOME}/Kokkos/kokkos
 
 #Backend and architecture configuration
-KOKKOS_DEVICES=OpenMP
+KOKKOS_DEVICES=Serial
 KOKKOS_ARCH = "SNB,Kepler35"
 
 #MPI On or off (1/0)
 MPI = 1
 
+MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+EXAMINIMD_PATH = $(subst Makefile,,$(MAKEFILE_PATH))/..
 
 default: build
 	echo "Start Build"
@@ -34,10 +36,33 @@ KOKKOS_OPTIONS=aggressive_vectorization
 
 DEPFLAGS = -M
 
-SRC = $(wildcard *.cpp)
-HEADERS = $(wildcard *.h)
+vpath %.cpp $(EXAMINIMD_PATH)/src
+SRC =  $(wildcard $(EXAMINIMD_PATH)/src/*.cpp) 
+HEADERS = $(wildcard $(EXAMINIMD_PATH)/src/*.h) 
+CXXFLAGS += -I$(EXAMINIMD_PATH)/src
 
-OBJ = $(SRC:.cpp=.o)
+vpath %.cpp $(EXAMINIMD_PATH)/src/force_types
+SRC += $(wildcard $(EXAMINIMD_PATH)/src/force_types/*.cpp)
+HEADERS += $(wildcard $(EXAMINIMD_PATH)/src/force_types/*.h)
+CXXFLAGS += -I$(EXAMINIMD_PATH)/src/force_types
+
+vpath %.cpp $(EXAMINIMD_PATH)/src/comm_types
+SRC += $(wildcard $(EXAMINIMD_PATH)/src/comm_types/*.cpp)
+HEADERS += $(wildcard $(EXAMINIMD_PATH)/src/comm_types/*.h)
+CXXFLAGS += -I$(EXAMINIMD_PATH)/src/comm_types
+
+vpath %.cpp $(EXAMINIMD_PATH)/src/neighbor_types
+SRC += $(wildcard $(EXAMINIMD_PATH)/src/neighbor_types/*.cpp)
+HEADERS += $(wildcard $(EXAMINIMD_PATH)/src/neighbor_types/*.h)
+CXXFLAGS += -I$(EXAMINIMD_PATH)/src/neighbor_types
+
+vpath %.cpp $(EXAMINIMD_PATH)/src/binning_types
+SRC += $(wildcard $(EXAMINIMD_PATH)/src/binning_types/*.cpp)
+HEADERS += $(wildcard $(EXAMINIMD_PATH)/src/binning_types/*.h)
+CXXFLAGS += -I$(EXAMINIMD_PATH)/src/binning_types
+
+SRC_NOTDIR = $(notdir $(SRC))
+OBJ = $(SRC_NOTDIR:.cpp=.o)
 LIB =
 
 include $(KOKKOS_PATH)/Makefile.kokkos

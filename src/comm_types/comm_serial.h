@@ -2,14 +2,14 @@
       if( (strcmp(argv[i+1], "SERIAL") == 0) )
         comm_type = COMM_SERIAL;
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef COMM_MODULES_INSTANTIATION
       else if(input->comm_type == COMM_SERIAL) {
         comm = new CommSerial(system,input->force_cutoff + input->neighbor_skin);
       }
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(COMM_MODULES_INSTANTIATION)
 #ifndef COMM_SERIAL_H
 #define COMM_SERIAL_H
 #include<comm.h>
@@ -26,7 +26,9 @@ class CommSerial: public Comm {
   // Owned Variables
 
   int phase; // Communication Phase
-  int num_ghost[6];
+  T_INT num_ghost[6];
+
+  T_INT ghost_offsets[6];
 
   T_INT num_packed;
   Kokkos::View<int, Kokkos::MemoryTraits<Kokkos::Atomic> > pack_count;
@@ -43,11 +45,13 @@ public:
   
   struct TagHaloSelf {};
   struct TagHaloUpdateSelf {};
+  struct TagHaloForceSelf {};
 
   CommSerial(System* s, T_X_FLOAT comm_depth_);
   void exchange();
   void exchange_halo();
   void update_halo();
+  void update_force();
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const TagExchangeSelf, 
@@ -152,6 +156,22 @@ public:
       case 5: p.z += s.domain_z; break;
     }
     s.set_particle(N_local + N_ghost + i, p);     
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForceSelf,
+                   const T_INT& ii) const {
+
+    const T_INT i = pack_indicies(ii);
+    T_F_FLOAT fx_i = s.f(ghost_offsets[phase] + ii,0);
+    T_F_FLOAT fy_i = s.f(ghost_offsets[phase] + ii,1);
+    T_F_FLOAT fz_i = s.f(ghost_offsets[phase] + ii,2);
+
+    //printf("FORCESELF %i %i %i %lf %lf\n",i,ghost_offsets[phase] + ii,ghost_offsets[phase],s.f(i,0),fx_i);
+    s.f(i, 0) += fx_i;
+    s.f(i, 1) += fy_i;
+    s.f(i, 2) += fz_i;
+
   }
 
   const char* name();

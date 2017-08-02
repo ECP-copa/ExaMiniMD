@@ -128,6 +128,9 @@ void CommMPI::reduce_float(T_FLOAT* vals, T_INT count) {
 }
 
 void CommMPI::exchange() {
+
+  Kokkos::Profiling::pushRegion("Comm::exchange");
+
   s = *system;
   N_local = system->N_local;
   N_ghost = 0;
@@ -218,9 +221,13 @@ void CommMPI::exchange() {
   system->N_ghost = 0;
   /*for(int i=0;i<N_local;i++)
     if(s.type(i)<0) printf("Huch: %i %i\n",i,N_local);*/
+
+  Kokkos::Profiling::popRegion();
 };
 
 void CommMPI::exchange_halo() {
+
+  Kokkos::Profiling::pushRegion("Comm::exchange_halo");
 
   N_local = system->N_local;
   N_ghost = 0;
@@ -298,6 +305,7 @@ void CommMPI::exchange_halo() {
       proc_num_recv[phase] = count;
     }
 
+    num_ghost[phase] = count;
     N_ghost += count;
   }
   static int step = 0;
@@ -305,11 +313,16 @@ void CommMPI::exchange_halo() {
 
   system->N_ghost = N_ghost;
 
+  Kokkos::Profiling::popRegion();
 };
 
 void CommMPI::update_halo() {
+
+  Kokkos::Profiling::pushRegion("Comm::update_halo");
+
   N_ghost = 0;
   s=*system;
+
   pack_buffer_update = t_buffer_update((T_X_FLOAT*)pack_buffer.data(),pack_indicies_all.extent(1));
   unpack_buffer_update = t_buffer_update((T_X_FLOAT*)unpack_buffer.data(),pack_indicies_all.extent(1));
 
@@ -338,6 +351,51 @@ void CommMPI::update_halo() {
     }
     N_ghost += proc_num_recv[phase];
   }
+
+  Kokkos::Profiling::popRegion();
+};
+
+void CommMPI::update_force() {
+
+  Kokkos::Profiling::pushRegion("Comm::update_force");
+
+  N_ghost = 0;
+  s=*system;
+
+  ghost_offsets[0] = s.N_local;
+  for(phase = 1; phase<6; phase++) {
+    ghost_offsets[phase] = ghost_offsets[phase-1] + proc_num_recv[phase-1];
+  }
+
+  pack_buffer_update = t_buffer_update((T_X_FLOAT*)pack_buffer.data(),pack_indicies_all.extent(1));
+  unpack_buffer_update = t_buffer_update((T_X_FLOAT*)unpack_buffer.data(),pack_indicies_all.extent(1));
+
+  for(phase = 5; phase>=0; phase--) {
+    pack_indicies = Kokkos::subview(pack_indicies_all,phase,Kokkos::ALL());
+    if(proc_grid[phase/2]>1) {
+
+      Kokkos::parallel_for("CommMPI::halo_force_pack",
+         Kokkos::RangePolicy<TagHaloForcePack, Kokkos::IndexType<T_INT> >(0,proc_num_recv[phase]),
+         *this);
+      MPI_Request request;
+      MPI_Status status;
+      MPI_Irecv(pack_buffer.data(),proc_num_send[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD,&request);
+      MPI_Send (unpack_buffer.data(),proc_num_recv[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_recv[phase],100002,MPI_COMM_WORLD);
+      s = *system;
+      MPI_Wait(&request,&status);
+      Kokkos::parallel_for("CommMPI::halo_force_unpack",
+                Kokkos::RangePolicy<TagHaloForceUnpack, Kokkos::IndexType<T_INT> >(0,proc_num_send[phase]),
+                *this);
+
+    } else {
+      //printf("HaloUpdateCopy: %i %i %i\n",phase,proc_num_send[phase],pack_indicies.extent(0));
+      Kokkos::parallel_for("CommMPI::halo_force_self",
+        Kokkos::RangePolicy<TagHaloForceSelf, Kokkos::IndexType<T_INT> >(0,proc_num_send[phase]),
+        *this);
+    }
+  }
+
+  Kokkos::Profiling::popRegion();
 };
 
 const char* CommMPI::name() { return "CommMPI"; }

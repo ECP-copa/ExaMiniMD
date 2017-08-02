@@ -2,14 +2,14 @@
    if( (strcmp(argv[i+1], "MPI") == 0) )
      comm_type = COMM_MPI;
 #endif
-#ifdef MODULES_INSTANTIATION
+#ifdef COMM_MODULES_INSTANTIATION
    else if(input->comm_type == COMM_MPI) {
      comm = new CommMPI(system,input->force_cutoff + input->neighbor_skin);
    }
 #endif
 
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+#if !defined(MODULES_OPTION_CHECK) && !defined(COMM_MODULES_INSTANTIATION)
 #ifndef COMM_MPI_H
 #define COMM_MPI_H
 #include<comm.h>
@@ -41,6 +41,9 @@ class CommMPI: public Comm {
   int proc_rank;         // My Process rank
   int proc_size;         // Number of processes
 
+  T_INT num_ghost[6];
+  T_INT ghost_offsets[6];
+
   T_INT num_packed;
   Kokkos::View<int, Kokkos::MemoryTraits<Kokkos::Atomic> > pack_count;
   Kokkos::View<Particle*> pack_buffer;
@@ -68,6 +71,10 @@ public:
   struct TagHaloUpdatePack {};
   struct TagHaloUpdateUnpack {};
 
+  struct TagHaloForceSelf {};
+  struct TagHaloForcePack {};
+  struct TagHaloForceUnpack {};
+
   struct TagPermuteIndexList {};
 
   CommMPI(System* s, T_X_FLOAT comm_depth_);
@@ -77,6 +84,7 @@ public:
   void exchange();
   void exchange_halo();
   void update_halo();
+  void update_force();
   void scan_int(T_INT* vals, T_INT count);
   void reduce_int(T_INT* vals, T_INT count);
   void reduce_float(T_FLOAT* vals, T_INT count);
@@ -407,6 +415,45 @@ public:
     s.x(N_local + N_ghost + ii, 1) = unpack_buffer_update(ii, 1);
     s.x(N_local + N_ghost + ii, 2) = unpack_buffer_update(ii, 2);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForceSelf,
+                   const T_INT& ii) const {
+
+    const T_INT i = pack_indicies(ii);
+    T_F_FLOAT fx_i = s.f(ghost_offsets[phase] + ii,0);
+    T_F_FLOAT fy_i = s.f(ghost_offsets[phase] + ii,1);
+    T_F_FLOAT fz_i = s.f(ghost_offsets[phase] + ii,2);
+
+    s.f(i, 0) += fx_i;
+    s.f(i, 1) += fy_i;
+    s.f(i, 2) += fz_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForcePack,
+                   const T_INT& ii) const {
+
+    T_F_FLOAT fx_i = s.f(ghost_offsets[phase] + ii,0);
+    T_F_FLOAT fy_i = s.f(ghost_offsets[phase] + ii,1);
+    T_F_FLOAT fz_i = s.f(ghost_offsets[phase] + ii,2);
+
+    unpack_buffer_update(ii, 0) = fx_i;
+    unpack_buffer_update(ii, 1) = fy_i;
+    unpack_buffer_update(ii, 2) = fz_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagHaloForceUnpack,
+                   const T_INT& ii) const {
+
+    const T_INT i = pack_indicies(ii);
+
+    s.f(i, 0) += pack_buffer_update(ii, 0);
+    s.f(i, 1) += pack_buffer_update(ii, 1);
+    s.f(i, 2) += pack_buffer_update(ii, 2);
+  }
+
   const char* name();
   int process_rank();
   int num_processes();

@@ -26,7 +26,6 @@ namespace {
     KOKKOS_INLINE_FUNCTION
     void operator() (const T_INT& i) const {
       const T_V_FLOAT dtfm = dtf / mass(type(i));
-      //printf("InitIntegrate %i: %lf %lf %lf %lf %lf %lf %lf %lf %lf %i\n",step,x(i,0),x(i,1),x(i,2),v(i,0),v(i,1),v(i,2),f(i,0),f(i,1),f(i,2),i);
       v(i,0) += dtfm * f(i,0);
       v(i,1) += dtfm * f(i,1);
       v(i,2) += dtfm * f(i,2);
@@ -71,7 +70,6 @@ namespace {
       v(i,0) += dtfm * f(i,0);
       v(i,1) += dtfm * f(i,1);
       v(i,2) += dtfm * f(i,2);
-//      printf("FinalIntegrate %i: %lf %lf %lf %lf %lf %lf %i\n",step,x(i,0),x(i,1),x(i,2),f(i,0),f(i,1),f(i,2),i);
     }
   };
 }
