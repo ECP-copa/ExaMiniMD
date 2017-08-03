@@ -94,6 +94,18 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
   force_iteration_type = FORCE_ITER_NEIGH_FULL;
   binning_type = BINNING_KKSORT;
   comm_exchange_rate = 20;
+
+  // set defaults
+
+  thermo_rate = 0;
+  dumpbinary_rate = 0;
+  correctness_rate = 0;
+  dumpbinaryflag = false;
+  correctnessflag = false;
+  timestepflag = false;
+  lattice_offset_x = 0.0;
+  lattice_offset_y = 0.0;
+  lattice_offset_z = 0.0;
   comm_newton = 0;
 }
 
@@ -110,6 +122,12 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("                              for force calculations (CELL_FULL, NEIGH_FULL, NEIGH_HALF)\n");
         printf("  --comm-type [TYPE]:         Specify Communication Routines implementation \n");
         printf("                              (MPI, SERIAL)\n");
+        printf("  --dumpbinary [N] [PATH]:    Request that binary output files PATH/output* be generated every N steps\n");
+        printf("                              (N = positive integer)\n");
+        printf("                              (PATH = location of directory)\n");
+        printf("  --correctness [N] [PATH] [FILE]:   Request that correctness check against files PATH/output* be performed every N steps, correctness data written to FILE\n");
+        printf("                              (N = positive integer)\n");
+        printf("                              (PATH = location of directory)\n");
         printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
         printf("                              (CSR, CSR_MAPCONSTR)\n");
       }
@@ -138,6 +156,21 @@ void Input::read_command_line_args(int argc, char* argv[]) {
      #include<modules_neighbor.h>
     }
 
+    // Dump Binary
+    if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
+      dumpbinary_rate = atoi(argv[i+1]);
+      dumpbinary_path = argv[i+2];
+      dumpbinaryflag = true;
+    }
+    
+    // Correctness Check
+    if( (strcmp(argv[i], "--correctness") == 0) ) {
+      correctness_rate = atoi(argv[i+1]);
+      reference_path = argv[i+2];
+      correctness_file = argv[i+3];
+      correctnessflag = true;
+    }
+    
   }
 #undef MODULES_OPTION_CHECK
 }
@@ -182,9 +215,9 @@ void Input::read_lammps_file(const char* filename) {
 
 void Input::check_lammps_command(int line) {
   bool known = false;
-
+  
   if(input_data.words[line][0][0]==0) { known = true; }
-  if(strcmp(input_data.words[line][0],"#")==0) { known = true; }
+  if(strstr(input_data.words[line][0],"#")) { known = true; }
   if(strcmp(input_data.words[line][0],"variable")==0) {
     if(system->do_print)
       printf("LAMMPS-Command: 'variable' keyword is not supported in ExaMiniMD\n");
@@ -203,17 +236,19 @@ void Input::check_lammps_command(int line) {
       system->boltz = 0.0019872067;
       //hplanck = 95.306976368;
       system->mvv2e = 48.88821291 * 48.88821291;
-      system->dt = 1.0;
+      if (!timestepflag)
+        system->dt = 1.0;
     } else if(strcmp(input_data.words[line][1],"lj")==0) {
       known = true;
       units = UNITS_LJ;
       system->boltz = 1.0;
       //hplanck = 0.18292026;
       system->mvv2e = 1.0;
-      system->dt = 0.005;
+      if (!timestepflag)
+        system->dt = 0.005;
     } else {
       if(system->do_print)
-        printf("LAMMPS-Command: 'units' command only supports 'real' in ExaMiniMD\n");
+        printf("LAMMPS-Command: 'units' command only supports 'real' and 'lj' in ExaMiniMD\n");
     }
   }
   if(strcmp(input_data.words[line][0],"atom_style")==0) {
@@ -235,7 +270,12 @@ void Input::check_lammps_command(int line) {
       lattice_constant = std::pow((4.0 / atof(input_data.words[line][2])), (1.0 / 3.0));
     } else {
       if(system->do_print)
-        printf("LAMMPS-Command: 'lattice' command only supports 'sc' in ExaMiniMD\n");
+        printf("LAMMPS-Command: 'lattice' command only supports 'sc' and 'fcc' in ExaMiniMD\n");
+    }
+    if(strcmp(input_data.words[line][3],"origin")==0) {
+       lattice_offset_x = atof(input_data.words[line][4]);
+       lattice_offset_y = atof(input_data.words[line][5]);
+       lattice_offset_z = atof(input_data.words[line][6]);
     }
   }
   if(strcmp(input_data.words[line][0],"region")==0) {
@@ -280,12 +320,14 @@ void Input::check_lammps_command(int line) {
       force_type = FORCE_LJ;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    }
-    if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
+    } else if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
       known = true;
       force_type = FORCE_LJ_IDIAL;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
+    } else {
+      if(system->do_print)
+        printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut' and 'lj/cut/idial' in ExaMiniMD\n");
     }
     if(strcmp(input_data.words[line][1],"snap")==0) {
       known = true;
@@ -343,6 +385,11 @@ void Input::check_lammps_command(int line) {
   if(strcmp(input_data.words[line][0],"thermo")==0) {
     known = true;
     thermo_rate = atoi(input_data.words[line][1]);
+  }
+  if(strcmp(input_data.words[line][0],"timestep")==0) {
+    known = true;
+    system->dt = atof(input_data.words[line][1]);
+    timestepflag = true;
   }
   if(strcmp(input_data.words[line][0],"newton")==0) {
     known = true;
@@ -408,26 +455,28 @@ void Input::create_lattice(Comm* comm) {
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
 
-    for(T_INT iz=iz_start; iz<=iz_end; iz++)
-      for(T_INT iy=iy_start; iy<=iy_end; iy++)
+    for(T_INT iz=iz_start; iz<=iz_end; iz++) {
+      T_FLOAT ztmp = lattice_constant * (iz+lattice_offset_z);
+      for(T_INT iy=iy_start; iy<=iy_end; iy++) {
+        T_FLOAT ytmp = lattice_constant * (iy+lattice_offset_y);
         for(T_INT ix=ix_start; ix<=ix_end; ix++) {
-          if( (lattice_constant * ix >= s.sub_domain_lo_x) &&
-              (lattice_constant * iy >= s.sub_domain_lo_y) &&
-              (lattice_constant * iz >= s.sub_domain_lo_z) &&
-              (lattice_constant * ix <  s.sub_domain_hi_x) &&
-              (lattice_constant * iy <  s.sub_domain_hi_y) &&
-              (lattice_constant * iz <  s.sub_domain_hi_z) ) {
-            h_x(n,0) = lattice_constant * ix ;
-            h_x(n,1) = lattice_constant * iy ;
-            h_x(n,2) = lattice_constant * iz ;
-
-
+          T_FLOAT xtmp = lattice_constant * (ix+lattice_offset_x);
+          if((xtmp >= s.sub_domain_lo_x) &&
+             (ytmp >= s.sub_domain_lo_y) &&
+             (ztmp >= s.sub_domain_lo_z) &&
+             (xtmp <  s.sub_domain_hi_x) &&
+             (ytmp <  s.sub_domain_hi_y) &&
+             (ztmp <  s.sub_domain_hi_z) ) {
+            h_x(n,0) = xtmp;
+            h_x(n,1) = ytmp;
+            h_x(n,2) = ztmp;
             h_type(n) = rand()%s.ntypes;
             h_id(n) = n+1;
             n++;
           }
         }
-  
+      }
+    }
     system->N_local = n;
     system->N = n;
     comm->reduce_int(&system->N,1);
@@ -472,6 +521,12 @@ void Input::create_lattice(Comm* comm) {
     basis[2][0] = 0.5; basis[2][1] = 0.0; basis[2][2] = 0.5;
     basis[3][0] = 0.0; basis[3][1] = 0.5; basis[3][2] = 0.5;
 
+    for (int i = 0; i < 4; i++) {
+      basis[i][0] += lattice_offset_x;
+      basis[i][1] += lattice_offset_y;
+      basis[i][2] += lattice_offset_z;
+    }
+
     T_INT ix_start = s.sub_domain_lo_x/s.domain_x * lattice_nx - 0.5;
     T_INT iy_start = s.sub_domain_lo_y/s.domain_y * lattice_ny - 0.5;
     T_INT iz_start = s.sub_domain_lo_z/s.domain_z * lattice_nz - 0.5;
@@ -480,26 +535,30 @@ void Input::create_lattice(Comm* comm) {
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
 
-    for(T_INT iz=iz_start; iz<=iz_end; iz++)
-      for(T_INT iy=iy_start; iy<=iy_end; iy++)
+    for(T_INT iz=iz_start; iz<=iz_end; iz++) {
+      for(T_INT iy=iy_start; iy<=iy_end; iy++) {
         for(T_INT ix=ix_start; ix<=ix_end; ix++) {
           for(int k = 0; k<4; k++) {
-            if( (lattice_constant * (1.0*ix + basis[k][0]) >= s.sub_domain_lo_x) &&
-                (lattice_constant * (1.0*iy + basis[k][1]) >= s.sub_domain_lo_y) &&
-                (lattice_constant * (1.0*iz + basis[k][2]) >= s.sub_domain_lo_z) &&
-                (lattice_constant * (1.0*ix + basis[k][0]) <  s.sub_domain_hi_x) &&
-                (lattice_constant * (1.0*iy + basis[k][1]) <  s.sub_domain_hi_y) &&
-                (lattice_constant * (1.0*iz + basis[k][2]) <  s.sub_domain_hi_z) ) {
-              h_x(n,0) = lattice_constant * (1.0*ix + basis[k][0]);
-              h_x(n,1) = lattice_constant * (1.0*iy + basis[k][1]) ;
-              h_x(n,2) = lattice_constant * (1.0*iz + basis[k][2]) ;
-
+            T_FLOAT xtmp = lattice_constant * (1.0*ix+basis[k][0]);
+            T_FLOAT ytmp = lattice_constant * (1.0*iy+basis[k][1]);
+            T_FLOAT ztmp = lattice_constant * (1.0*iz+basis[k][2]);
+            if((xtmp >= s.sub_domain_lo_x) &&
+               (ytmp >= s.sub_domain_lo_y) &&
+               (ztmp >= s.sub_domain_lo_z) &&
+               (xtmp <  s.sub_domain_hi_x) &&
+               (ytmp <  s.sub_domain_hi_y) &&
+               (ztmp <  s.sub_domain_hi_z) ) {
+              h_x(n,0) = xtmp;
+              h_x(n,1) = ytmp;
+              h_x(n,2) = ztmp;
               h_type(n) = rand()%s.ntypes;
               h_id(n) = n+1;
               n++;
             }
           }
         }
+      }
+    }
 
     system->N_local = n;
     system->N = n;

@@ -96,7 +96,9 @@ class LAMMPS_RandomVelocityGeom {
 
 
 class Input {
-public:
+ private:
+  bool timestepflag; // input timestep?  
+ public:
   System* system;
   
   char* input_file;
@@ -106,7 +108,7 @@ public:
   int units;
 
   int lattice_style;
-  double lattice_constant;
+  double lattice_constant, lattice_offset_x, lattice_offset_y, lattice_offset_z;
   int lattice_nx, lattice_ny, lattice_nz;
 
   double temperature_target;
@@ -131,7 +133,9 @@ public:
   T_F_FLOAT neighbor_skin; 
   int neighbor_type;
   
-  int thermo_rate;
+  int thermo_rate, dumpbinary_rate, correctness_rate;
+  bool dumpbinaryflag, correctnessflag;
+  char *dumpbinary_path, *reference_path, *correctness_file;
  
 public:
   Input(System* s);

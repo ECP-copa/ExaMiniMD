@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   
    examinimd.run(examinimd.input->nsteps);
 
-   examinimd.check_correctness();
+   //   examinimd.check_correctness();
 
    examinimd.print_performance();
 

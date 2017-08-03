@@ -36,6 +36,18 @@ public:
   // Do a sum reduction over integers
   virtual void reduce_int(T_INT* values, T_INT N);
 
+  // Do a max reduction over floats
+  virtual void reduce_max_float(T_FLOAT* values, T_INT N);
+
+  // Do a max reduction over integers
+  virtual void reduce_max_int(T_INT* values, T_INT N);
+
+  // Do a min reduction over floats
+  virtual void reduce_min_float(T_FLOAT* values, T_INT N);
+
+  // Do a min reduction over integers
+  virtual void reduce_min_int(T_INT* values, T_INT N);
+
   // Do an inclusive scan over integers
   virtual void scan_int(T_INT* values, T_INT N);
 
@@ -50,6 +62,9 @@ public:
 
   // Get number of processors
   virtual int num_processes();
+
+  // Exit with error message
+  virtual void error(const char *);
 
   // Get class name
   virtual const char* name();

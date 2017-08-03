@@ -123,7 +123,32 @@ void CommMPI::reduce_int(T_INT* vals, T_INT count) {
 
 void CommMPI::reduce_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
+    // This generates MPI_ERR_BUFFER for count>1
     MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  }
+}
+
+void CommMPI::reduce_max_int(T_INT* vals, T_INT count) {
+  if(std::is_same<T_INT,int>::value) {
+    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+  }
+}
+
+void CommMPI::reduce_max_float(T_FLOAT* vals, T_INT count) {
+  if(std::is_same<T_FLOAT,double>::value) {
+    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  }
+}
+
+void CommMPI::reduce_min_int(T_INT* vals, T_INT count) {
+  if(std::is_same<T_INT,int>::value) {
+    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+  }
+}
+
+void CommMPI::reduce_min_float(T_FLOAT* vals, T_INT count) {
+  if(std::is_same<T_FLOAT,double>::value) {
+    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
@@ -402,4 +427,9 @@ const char* CommMPI::name() { return "CommMPI"; }
 
 int CommMPI::process_rank() { return proc_rank; }
 int CommMPI::num_processes() { return proc_size; }
+void CommMPI::error(const char *errormsg) {
+  if(proc_rank==0)
+  printf("%s\n",errormsg);
+  MPI_Abort(MPI_COMM_WORLD,1);
+};
 #endif

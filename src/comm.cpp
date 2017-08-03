@@ -8,6 +8,10 @@ void Comm::update_halo() {};
 void Comm::update_force() {};
 void Comm::reduce_float(T_FLOAT*, T_INT) {};
 void Comm::reduce_int(T_INT*, T_INT) {};
+void Comm::reduce_max_float(T_FLOAT*, T_INT) {};
+void Comm::reduce_max_int(T_INT*, T_INT) {};
+void Comm::reduce_min_float(T_FLOAT*, T_INT) {};
+void Comm::reduce_min_int(T_INT*, T_INT) {};
 void Comm::scan_int(T_INT*, T_INT) {};
 void Comm::weighted_reduce_float(T_FLOAT* , T_INT* , T_INT ) {};
 void Comm::create_domain_decomposition() {
@@ -20,5 +24,9 @@ void Comm::create_domain_decomposition() {
 };
 int Comm::process_rank() {return 0;}
 int Comm::num_processes() {return 1;}
+void Comm::error(const char *errormsg) {
+  printf("%s\n",errormsg);
+  exit(1);
+};
 const char* Comm::name() {return "InvalidComm";}
 

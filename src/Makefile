@@ -2,8 +2,8 @@
 KOKKOS_PATH = ${HOME}/Kokkos/kokkos
 
 #Backend and architecture configuration
-KOKKOS_DEVICES=Serial
-KOKKOS_ARCH = "SNB,Kepler35"
+KOKKOS_DEVICES=OpenMP
+KOKKOS_ARCH = ""
 
 #MPI On or off (1/0)
 MPI = 1

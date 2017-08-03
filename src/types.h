@@ -22,6 +22,10 @@ enum {NEIGH_NONE, NEIGH_CSR, NEIGH_CSR_MAPCONSTR};
 // Input File Type
 enum {INPUT_LAMMPS};
 
+// Macros to work around the fact that std::max/min is not available on GPUs
+#define MAX(a,b) (a>b?a:b)
+#define MIN(a,b) (a<b?a:b)
+
 
 // Define Scalar Types
 #ifndef T_INT

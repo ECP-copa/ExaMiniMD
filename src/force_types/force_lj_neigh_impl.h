@@ -57,17 +57,35 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   type = system->type;
   id = system->id;
   if(half_neigh)
-    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_half_neigh(0, system->N_local), *this);
+    Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh(0, system->N_local), *this);
   else
-    Kokkos::parallel_for("ForceLJNeigh::computer", t_policy_full_neigh(0, system->N_local), *this);
+    Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
   Kokkos::fence();
 
-  // Reset internal data handles so we don't keep a reference count
-  /*x = t_x();
-  type = t_type();
-  f = t_f();
-  neigh_list = NeighborCSR<t_neigh_mem_space>::t_neigh_list();*/
   step++;
+}
+
+template<class NeighborClass>
+T_V_FLOAT ForceLJNeigh<NeighborClass>::compute_energy(System* system, Binning* binning, Neighbor* neighbor_ ) {
+  // Set internal data handles
+  NeighborClass* neighbor = (NeighborClass*) neighbor_;
+  neigh_list = neighbor->get_neigh_list();
+
+  N_local = system->N_local;
+  x = system->x;
+  f = system->f;
+  f_a = system->f;
+  type = system->type;
+  id = system->id;
+  T_V_FLOAT energy;
+  if(half_neigh)
+    Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, energy);
+  else
+    Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, energy);
+  Kokkos::fence();
+
+  step++;
+  return energy;
 }
 
 template<class NeighborClass>
@@ -158,3 +176,81 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh, const T_INT& i) cons
 
 }
 
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceLJNeigh<NeighborClass>::operator() (TagFullNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+  const T_F_FLOAT x_i = x(i,0);
+  const T_F_FLOAT y_i = x(i,1);
+  const T_F_FLOAT z_i = x(i,2);
+  const int type_i = type(i);
+  const bool shift_flag = true;
+
+  typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
+
+  const int num_neighs = neighs_i.get_num_neighs();
+
+  for(int jj = 0; jj < num_neighs; jj++) {
+    T_INT j = neighs_i(jj);
+    const T_F_FLOAT dx = x_i - x(j,0);
+    const T_F_FLOAT dy = y_i - x(j,1);
+    const T_F_FLOAT dz = z_i - x(j,2);
+
+    const int type_j = type(j);
+    const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+    if( rsq < rnd_cutsq(type_i,type_j) ) {
+
+      T_F_FLOAT r2inv = 1.0/rsq;
+      T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
+      PE += 0.5*r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
+
+      if (shift_flag) {
+        T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
+        T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
+        PE -= 0.5*r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
+      }
+    }
+  }
+}
+
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+  const T_F_FLOAT x_i = x(i,0);
+  const T_F_FLOAT y_i = x(i,1);
+  const T_F_FLOAT z_i = x(i,2);
+  const int type_i = type(i);
+  const bool shift_flag = true;
+
+  typename t_neigh_list::t_neighs neighs_i = neigh_list.get_neighs(i);
+
+  const int num_neighs = neighs_i.get_num_neighs();
+
+  for(int jj = 0; jj < num_neighs; jj++) {
+    T_INT j = neighs_i(jj);
+    const T_F_FLOAT dx = x_i - x(j,0);
+    const T_F_FLOAT dy = y_i - x(j,1);
+    const T_F_FLOAT dz = z_i - x(j,2);
+
+    const int type_j = type(j);
+    const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+    if( rsq < rnd_cutsq(type_i,type_j) ) {
+
+      T_F_FLOAT r2inv = 1.0/rsq;
+      T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
+      T_F_FLOAT fac;
+      if(j<N_local) fac = 1.0;
+      else fac = 0.5;
+
+      PE += fac * r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
+
+      if (shift_flag) {
+        T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
+        T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
+        PE -= fac * r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
+      }
+    }
+  }
+
+}

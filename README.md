@@ -2,7 +2,7 @@
 
 ExaMiniMD is a proxy application and research vehicle for 
 particle codes, in particular Molecular Dynamics (MD). Compared to 
-previous MD proxy apps (MiniMD, COMD), its design is signicantly more 
+previous MD proxy apps (MiniMD, COMD), its design is significantly more 
 modular in order to allow independent investigation of different aspects.
 To achieve that the main components such as force calculation, 
 communication, neighbor list construction and binning are derived 
@@ -27,14 +27,14 @@ git clone https://github.com/kokkos/kokkos ~/kokkos
 # Current Capabilities
 
 ### Force Fields:
- * Lennard Jones Cell List
- * Lennard Jones Neighbor List
+ * Lennard-Jones Cell List
+ * Lennard-Jones Neighbor List
 
 ### Neighbor List:
  * CSR NeighborList creation
 
 ### Integrator:
- * NVE (constant energy velocity verlet)
+ * NVE (constant energy velocity-Verlet)
 
 ### Communication
  * Serial
@@ -83,7 +83,18 @@ Currently ExaMiniMD can only get input from LAMMPS input files with a
 restricted set of LAMMPS commands. An example input file is provided in the
 input directory. Assuming you build in the src directory run:
 
+To run 2 MPI tasks, with 12 threads per task:
 ```
 mpirun -np 2 -bind-to socket ./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-threads=12
+```
+
+To run in serial, writing binary output every timestep to ReferenceDir
+```
+./ExaMiniMD -il ../input/in.lj --kokkos-threads=1 --binarydump 1 ReferenceDir 
+```
+
+To run in serial with 2 threads, checking correctness every timestep against ReferenceDir
+```
+./ExaMiniMD -il ../input/in.lj --kokkos-threads=2 --correctness 1 ReferenceDir correctness.dat 
 ```
 

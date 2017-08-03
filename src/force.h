@@ -13,6 +13,7 @@ public:
   virtual void init_coeff(int nargs, char** args);
 
   virtual void compute(System* system, Binning* binning, Neighbor* neigh);
+  virtual T_F_FLOAT compute_energy(System* system, Binning* binning, Neighbor* neigh){return 0.0;}; // Only needed for thermo output
 
   virtual const char* name();
 };

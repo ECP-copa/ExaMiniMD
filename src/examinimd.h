@@ -24,7 +24,8 @@ class ExaMiniMD {
        
     void run(int nsteps);
 
-    void check_correctness();
+    void dump_binary(int);
+    void check_correctness(int);
 
     void print_performance();
 
