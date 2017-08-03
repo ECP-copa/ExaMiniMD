@@ -17,13 +17,10 @@
 
 #include "sna.h"
 #include <math.h>
-#include "math_const.h"
-//#include "math_extra.h"
 #include <string.h>
 #include <stdlib.h>
 
-using namespace std;
-using namespace MathConst;
+static const double MY_PI  = 3.14159265358979323846; // pi
 
 inline
 SNA::SNA(double rfac0_in,

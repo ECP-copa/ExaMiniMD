@@ -50,21 +50,32 @@ private:
 public:
   struct TagFullNeigh {};
   struct TagHalfNeigh {};
+  struct TagFullNeighPE {};
+  struct TagHalfNeighPE {};
 
   typedef Kokkos::RangePolicy<TagFullNeigh,Kokkos::IndexType<T_INT> > t_policy_full_neigh;
   typedef Kokkos::RangePolicy<TagHalfNeigh,Kokkos::IndexType<T_INT> > t_policy_half_neigh;
+  typedef Kokkos::RangePolicy<TagFullNeighPE,Kokkos::IndexType<T_INT> > t_policy_full_neigh_pe;
+  typedef Kokkos::RangePolicy<TagHalfNeighPE,Kokkos::IndexType<T_INT> > t_policy_half_neigh_pe;
 
   ForceLJNeigh (char** args, System* system, bool half_neigh_);
 
   void init_coeff(int nargs, char** args);
 
   void compute(System* system, Binning* binning, Neighbor* neighbor );
+  T_F_FLOAT compute_energy(System* system, Binning* binning, Neighbor* neighbor);
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagFullNeigh, const T_INT& i) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagHalfNeigh, const T_INT& i) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagFullNeighPE, const T_INT& i, T_V_FLOAT& PE) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagHalfNeighPE, const T_INT& i, T_V_FLOAT& PE) const;
 
   const char* name();
 };

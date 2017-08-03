@@ -15,7 +15,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "force_snap_neigh.h"
-#include "math_const.h"
 
 #define MAXLINE 1024
 #define MAXWORD 3
