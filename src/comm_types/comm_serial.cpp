@@ -71,4 +71,21 @@ void CommSerial::update_halo() {
   }
 };
 
+void CommSerial::update_force() {
+  //printf("Update Force\n");
+  s=*system;
+  ghost_offsets[0] = s.N_local;
+  for(phase = 1; phase<6; phase++) {
+    ghost_offsets[phase] = ghost_offsets[phase-1] + num_ghost[phase-1];
+  }
+
+  for(phase = 5; phase>=0; phase--) {
+    pack_indicies = Kokkos::subview(pack_indicies_all,phase,Kokkos::ALL());
+
+    Kokkos::parallel_for("CommSerial::halo_force_self",
+      Kokkos::RangePolicy<TagHaloForceSelf, Kokkos::IndexType<T_INT> >(0,num_ghost[phase]),
+      *this);
+  }
+};
+
 const char* CommSerial::name() { return "CommSerial"; }

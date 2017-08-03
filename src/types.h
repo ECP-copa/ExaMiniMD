@@ -4,7 +4,7 @@
 
 // Module Types etc
 // Units to be used
-enum {UNITS_REAL,UNITS_LJ};
+enum {UNITS_REAL,UNITS_LJ,UNITS_METAL};
 // Lattice Type
 enum {LATTICE_SC,LATTICE_FCC};
 // Integrator Type
@@ -14,7 +14,7 @@ enum {BINNING_KKSORT};
 // Comm Type
 enum {COMM_SERIAL,COMM_MPI};
 // Force Type
-enum {FORCE_LJ, FORCE_LJ_IDIAL};
+enum {FORCE_LJ, FORCE_LJ_IDIAL, FORCE_SNAP};
 // Force Iteration Type
 enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL, FORCE_ITER_NEIGH_HALF};
 // Neighbor Type

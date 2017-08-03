@@ -50,6 +50,12 @@ void ItemizedFile::print_line(int i) {
   std::cout << std::endl;
 }
 
+int ItemizedFile::words_in_line(int i){
+  int count = 0;
+  for(int j=0; j<words_per_line; j++) 
+    if(words[i][j][0]) count++;
+  return count;
+}
 void ItemizedFile::print() {
   for(int l=0; l<nlines; l++)
     print_line(l);
@@ -100,6 +106,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
   lattice_offset_x = 0.0;
   lattice_offset_y = 0.0;
   lattice_offset_z = 0.0;
+  comm_newton = 0;
 }
 
 void Input::read_command_line_args(int argc, char* argv[]) {
@@ -121,6 +128,8 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("  --correctness [N] [PATH] [FILE]:   Request that correctness check against files PATH/output* be performed every N steps, correctness data written to FILE\n");
         printf("                              (N = positive integer)\n");
         printf("                              (PATH = location of directory)\n");
+        printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
+        printf("                              (CSR, CSR_MAPCONSTR)\n");
       }
       continue;
     }
@@ -214,7 +223,14 @@ void Input::check_lammps_command(int line) {
       printf("LAMMPS-Command: 'variable' keyword is not supported in ExaMiniMD\n");
   }
   if(strcmp(input_data.words[line][0],"units")==0) {
-    if(strcmp(input_data.words[line][1],"real")==0) {
+    if(strcmp(input_data.words[line][1],"metal")==0) {
+      known = true;
+      units = UNITS_METAL;
+      system->boltz = 8.617343e-5;
+      //hplanck = 95.306976368;
+      system->mvv2e = 1.0364269e-4;
+      system->dt = 0.001;
+    } else if(strcmp(input_data.words[line][1],"real")==0) {
       known = true;
       units = UNITS_REAL;
       system->boltz = 0.0019872067;
@@ -313,12 +329,21 @@ void Input::check_lammps_command(int line) {
       if(system->do_print)
         printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut' and 'lj/cut/idial' in ExaMiniMD\n");
     }
+    if(strcmp(input_data.words[line][1],"snap")==0) {
+      known = true;
+      force_type = FORCE_SNAP;
+      force_cutoff = 4.73442;// atof(input_data.words[line][2]);
+      force_line = line;
+    }
+    if(system->do_print && !known)
+      printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut', 'lj/cut/idial', and 'snap' style in ExaMiniMD\n");
   }
   if(strcmp(input_data.words[line][0],"pair_coeff")==0) {
     known = true;
     int n_coeff_lines = force_coeff_lines.dimension_0();
     Kokkos::resize(force_coeff_lines,n_coeff_lines+1);
     force_coeff_lines( n_coeff_lines) = line;
+    n_coeff_lines++;
   }
   if(strcmp(input_data.words[line][0],"velocity")==0) {
     known = true;
@@ -366,8 +391,24 @@ void Input::check_lammps_command(int line) {
     system->dt = atof(input_data.words[line][1]);
     timestepflag = true;
   }
-  if(!known && system->do_print)
+  if(strcmp(input_data.words[line][0],"newton")==0) {
+    known = true;
+    if(strcmp(input_data.words[line][1],"on")==0) {
+      comm_newton=1;
+    } else if(strcmp(input_data.words[line][1],"off")==0) {
+      comm_newton=0;
+    } else {
+      if(system->do_print)
+        printf("LAMMPS-Command: 'newton' must be followed by 'on' or 'off'\n");
+    }
+  }
+  if(input_data.words[line][0][0]=='#') {
+    known = true;
+  }
+  if(!known && system->do_print) {
     printf("ERROR: unknown keyword\n");
+    input_data.print_line(line);
+  }
 }
 
 void Input::create_lattice(Comm* comm) {

@@ -1,0 +1,152 @@
+/* -*- c++ -*- ----------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   http://lammps.sandia.gov, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+------------------------------------------------------------------------- */
+#ifdef MODULES_OPTION_CHECK
+      if( (strcmp(argv[i+1], "NEIGH_FULL") == 0) )
+        force_iteration_type = FORCE_ITER_NEIGH_FULL;
+#endif
+#ifdef FORCE_MODULES_INSTANTIATION
+    else if (input->force_type == FORCE_SNAP) {
+      bool half_neigh = input->force_iteration_type == FORCE_ITER_NEIGH_HALF;
+      if(half_neigh) Kokkos::abort("ForceSNAP does not support half neighborlist");
+      switch ( input->neighbor_type ) {
+        #define FORCETYPE_ALLOCATION_MACRO(NeighType)  ForceSNAP<NeighType>(input->input_data.words[input->force_line],system,half_neigh)
+        #include <modules_neighbor.h>
+        #undef FORCETYPE_ALLOCATION_MACRO
+      }
+    }
+
+#endif
+
+
+#if !defined(MODULES_OPTION_CHECK) && \
+    !defined(FORCE_MODULES_INSTANTIATION)
+
+#ifndef FORCE_SNAP_NEIGH_H
+#define FORCE_SNAP_NEIGH_H
+#include<force.h>
+#include<sna.h>
+
+template<class NeighborClass>
+class ForceSNAP : public Force {
+public:
+  ForceSNAP(char** args, System* system, bool half_neigh_);
+  ~ForceSNAP();
+  
+  void init_coeff(int nargs, char** args);
+  void compute(System* system, Binning* binning, Neighbor* neighbor );
+
+  const char* name() {return "ForceSNAP";}
+
+protected:
+  System* system;
+
+  typedef typename NeighborClass::t_neigh_list t_neigh_list;
+  t_neigh_list neigh_list;
+
+  int ncoeff, ncoeffq, ncoeffall;
+  typedef Kokkos::View<T_F_FLOAT**> t_bvec;
+  t_bvec bvec;
+  typedef Kokkos::View<T_F_FLOAT***> t_dbvec;
+  t_dbvec dbvec;
+  SNA sna;
+
+  int nmax;
+
+  // How much parallelism to use within an interaction
+  int vector_length;
+  // How many interactions can be run concurrently
+  int concurrent_interactions;
+
+  void allocate();
+  void read_files(char *, char *);
+  /*inline int equal(double* x,double* y);
+  inline double dist2(double* x,double* y);
+  double extra_cutoff();
+  void load_balance();
+  void set_sna_to_shared(int snaid,int i);
+  void build_per_atom_arrays();*/
+
+  int schedule_user;
+  double schedule_time_guided;
+  double schedule_time_dynamic;
+
+  int ncalls_neigh;
+  int do_load_balance;
+  int ilistmask_max;
+  Kokkos::View<T_INT*> ilistmast;
+  int ghostinum;
+  int ghostilist_max;
+  Kokkos::View<T_INT*> ghostilist;
+  int ghostnumneigh_max;
+  Kokkos::View<T_INT*> ghostnumneigh;
+  Kokkos::View<T_INT*> ghostneighs;
+  Kokkos::View<T_INT*> ghostfirstneigh;
+  int ghostneighs_total;
+  int ghostneighs_max;
+
+  int use_optimized;
+  int use_shared_arrays;
+
+  int i_max;
+  int i_neighmax;
+  int i_numpairs;
+  Kokkos::View<T_INT**, Kokkos::LayoutRight> i_pairs;
+  Kokkos::View<T_INT***, Kokkos::LayoutRight> i_rij;
+  Kokkos::View<T_INT**, Kokkos::LayoutRight> i_inside;
+  Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> i_wj;
+  Kokkos::View<T_F_FLOAT***, Kokkos::LayoutRight>i_rcutij;
+  Kokkos::View<T_INT*> i_ninside;
+  Kokkos::View<T_F_FLOAT****, Kokkos::LayoutRight> i_uarraytot_r, i_uarraytot_i;
+  Kokkos::View<T_F_FLOAT******, Kokkos::LayoutRight> i_zarray_r, i_zarray_i;
+
+#ifdef TIMING_INFO
+  //  timespec starttime, endtime;
+  double timers[4];
+#endif
+
+  double rcutmax;               // max cutoff for all elements
+  int nelements;                // # of unique elements
+  char **elements;              // names of unique elements
+  Kokkos::View<T_F_FLOAT*> radelem;              // element radii
+  Kokkos::View<T_F_FLOAT*> wjelem;               // elements weights
+  Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> coeffelem;           // element bispectrum coefficients
+  Kokkos::View<T_INT*> map;                     // mapping from atom types to elements
+  int twojmax, diagonalstyle, switchflag, bzeroflag, quadraticflag;
+  double rcutfac, rfac0, rmin0, wj1, wj2;
+  int rcutfacflag, twojmaxflag; // flags for required parameters
+  typedef Kokkos::View<T_F_FLOAT**> t_fparams;
+  t_fparams cutsq;
+  typedef Kokkos::View<const T_F_FLOAT**,
+      Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_fparams_rnd;
+  t_fparams_rnd rnd_cutsq;
+
+
+  t_x x;
+  t_f_atomic f;
+  t_type type;
+
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const Kokkos::TeamPolicy<>::member_type& team) const;
+
+};
+
+#define FORCE_MODULES_EXTERNAL_TEMPLATE
+#define FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighType) ForceSNAP<NeighType>
+#include<modules_neighbor.h>
+#undef FORCETYPE_DECLARE_TEMPLATE_MACRO
+#undef FORCE_MODULES_EXTERNAL_TEMPLATE
+
+#endif
+#endif

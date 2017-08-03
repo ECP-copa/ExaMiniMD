@@ -1,24 +1,24 @@
 # ExaMiniMD
 
-ExaMiniMD is a proxy applications and research vehicle for 
+ExaMiniMD is a proxy application and research vehicle for 
 particle codes, in particular Molecular Dynamics (MD). Compared to 
 previous MD proxy apps (MiniMD, COMD), its design is significantly more 
 modular in order to allow independent investigation of different aspects.
 To achieve that the main components such as force calculation, 
 communication, neighbor list construction and binning are derived 
-classes whos main functionality is accessed via virtual functions. 
-This allows developer to write a new derived class and drop it into the code
+classes whose main functionality is accessed via virtual functions. 
+This allows a developer to write a new derived class and drop it into the code
 without touching much of the rest of the application.
 
 These modules are included via a module header file. Those header files are
 also used to inject the input parameter logic and instantiation logic into 
-the main code. As an example look at modules_comm.h in conjunction with 
+the main code. As an example, look at modules_comm.h in conjunction with 
 comm_serial.h and comm_mpi.h. 
 
 In the future the plan is to provide focused miniApps with a subset of the 
 available functionality for specific research purposes. 
 
-This application is using Kokkos as a programming model which you can clone
+This implementation uses the Kokkos programming model, which you can clone
 from github via:
 ```
 git clone https://github.com/kokkos/kokkos ~/kokkos

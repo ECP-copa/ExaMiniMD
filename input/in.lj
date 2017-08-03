@@ -3,6 +3,7 @@
 units		lj
 atom_style	atomic
 
+newton off
 lattice		fcc 0.8442
 region		box block 0 40 0 40 0 40
 create_box	1 box

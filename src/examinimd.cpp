@@ -39,28 +39,35 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 
   // Create Force Type
   if(false) {}
-#define MODULES_INSTANTIATION
+#define FORCE_MODULES_INSTANTIATION
 #include<modules_force.h>
-#undef MODULES_INSTANTIATION
+#undef FORCE_MODULES_INSTANTIATION
   else comm->error("Invalid ForceType");
-
   for(int line = 0; line < input->force_coeff_lines.dimension_0(); line++) {
-    force->init_coeff(6,input->input_data.words[input->force_coeff_lines(line)]);
+    //input->input_data.print_line(input->force_coeff_lines(line));
+    //printf("init_coeff: %i %i\n",line,input->input_data.words_in_line(input->force_coeff_lines(line)));
+    force->init_coeff(input->input_data.words_in_line(input->force_coeff_lines(line)),
+                      input->input_data.words[input->force_coeff_lines(line)]);
   }
 
   // Create Neighbor Instance
   if (false) {}
-#define MODULES_INSTANTIATION
+#define NEIGHBOR_MODULES_INSTANTIATION
 #include<modules_neighbor.h>
-#undef MODULES_INSTANTIATION
+#undef NEIGHBOR_MODULES_INSTANTIATION
   else comm->error("Invalid NeighborType");
 
   // Create Communication Submodule
   if (false) {}
-#define MODULES_INSTANTIATION
+#define COMM_MODULES_INSTANTIATION
 #include<modules_comm.h>
-#undef MODULES_INSTANTIATION
+#undef COMM_MODULES_INSTANTIATION
   else comm->error("Invalid CommType");
+
+  // Do some additional settings
+  force->comm_newton = input->comm_newton;
+  if(neighbor)
+    neighbor->comm_newton = input->comm_newton;
 
   // system->print_particles();
   if(system->do_print) {
@@ -71,6 +78,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   if(system->N == 0)
     input->create_lattice(comm);
 
+  // Create the Halo
   comm->exchange(); 
 
   // Sort particles
@@ -88,10 +96,15 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     neighbor->create_neigh_list(system,binning,force->half_neigh,false);
 
   // Compute initial forces
+  Kokkos::deep_copy(system->f,0.0);
   force->compute(system,binning,neighbor);
 
-  // Initial output
+  if(input->comm_newton) {
+    // Reverse Communicate Force Update on Halo
+    comm->update_force();
+  }
   
+  // Initial output
   int step = 0;
   if(input->thermo_rate > 0) {
     Temperature temp(comm);
@@ -107,10 +120,11 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     }
   }
 
-  if (input->dumpbinaryflag)
+  if(input->dumpbinaryflag)
     dump_binary(step);
-  if (input->correctnessflag)
-      check_correctness(step);
+
+  if(input->correctnessflag)
+    check_correctness(step);
 
 }
 
@@ -178,6 +192,13 @@ void ExaMiniMD::run(int nsteps) {
 
     // This is where Bonds, Angles and KSpace should go eventually 
     
+    // Reverse Communicate Force Update on Halo
+    if(input->comm_newton) {
+      comm_timer.reset();
+      comm->update_force();
+      comm_time += comm_timer.seconds();
+    }
+
     // Do second part of the verlet time step integration 
     other_timer.reset();
     integrator->final_integrate();
@@ -194,9 +215,10 @@ void ExaMiniMD::run(int nsteps) {
       }
     }
 
-    if (input->dumpbinaryflag)
+    if(input->dumpbinaryflag)
       dump_binary(step);
-    if (input->correctnessflag)
+ 
+    if(input->correctnessflag)
       check_correctness(step);
 
     other_time += other_timer.seconds();

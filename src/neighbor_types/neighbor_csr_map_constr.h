@@ -1,16 +1,38 @@
+// Runtime Check for this Neighbor Class
 #ifdef MODULES_OPTION_CHECK
       if( (strcmp(argv[i+1], "CSR_MAPCONSTR") == 0) )
         neighbor_type = NEIGH_CSR_MAPCONSTR;
 #endif
-#ifdef MODULES_INSTANTIATION
+
+// Instantiation and Init of this class
+#ifdef NEIGHBOR_MODULES_INSTANTIATION
     else if (input->neighbor_type == NEIGH_CSR_MAPCONSTR) {
       neighbor = new NeighborCSRMapConstr<t_neigh_mem_space>();
       neighbor->init(input->force_cutoff + input->neighbor_skin);
     }
 #endif
 
+// Add Force Instantiation case
+#if defined(FORCE_MODULES_INSTANTIATION)
+      case NEIGH_CSR_MAPCONSTR: force = new FORCETYPE_ALLOCATION_MACRO(NeighborCSRMapConstr<t_neigh_mem_space>); break;
+#endif
 
-#if !defined(MODULES_OPTION_CHECK) && !defined(MODULES_INSTANTIATION)
+// Add Force declaration line
+#if defined(FORCE_MODULES_EXTERNAL_TEMPLATE)
+      extern template class FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighborCSRMapConstr<t_neigh_mem_space>);
+#endif
+
+// Add Force Template Instantiation line
+#if defined(FORCE_MODULES_TEMPLATE)
+      template class FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighborCSRMapConstr<t_neigh_mem_space>);
+#endif
+
+// Making sure we are not just instantiating some Option
+#if !defined(MODULES_OPTION_CHECK) && \
+    !defined(NEIGHBOR_MODULES_INSTANTIATION) && \
+    !defined(FORCE_MODULES_INSTANTIATION) && \
+    !defined(FORCE_MODULES_EXTERNAL_TEMPLATE) && \
+    !defined(FORCE_MODULES_TEMPLATE)
 #ifndef NEIGHBOR_CSR_MAPCONSTR_H
 #define NEIGHBOR_CSR_MAPCONSTR_H
 #include <neighbor_csr.h>
@@ -131,7 +153,7 @@ public:
           const T_F_FLOAT x_j = x(j,0);
           const T_F_FLOAT y_j = x(j,1);
           const T_F_FLOAT z_j = x(j,2);
-          if( (j<N_local) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
+          if( ((j==i) || (j<N_local || comm_newton==true)) && !((x_j > x_i)  || ((x_j == x_i) && ( (y_j>y_i) ||  ((y_j==y_i) && (z_j>z_i) )))))
             return;
           const T_F_FLOAT dx = x_i - x_j;
           const T_F_FLOAT dy = y_i - y_j;
@@ -261,10 +283,6 @@ public:
   const char* name() {return "NeighborCSRMapConstr";}
 };
 
-
-#ifdef KOKKOS_ENABLE_CUDA
-extern template struct NeighborCSRMapConstr<Kokkos::CudaSpace>;
-#endif
-extern template struct NeighborCSRMapConstr<Kokkos::HostSpace>;
+extern template struct NeighborCSRMapConstr<t_neigh_mem_space>;
 #endif // #define NEIGHBOR_CSR_MAPCONSTR_H
 #endif // MODULES_OPTION_CHECK / MODULES_INSTANTIATION
