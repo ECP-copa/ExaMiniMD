@@ -23,6 +23,13 @@
 // 1. there seems to a problem with compute_optimized energy calc
 // it does not match compute_regular, even when quadratic coeffs = 0
 
+static double t1 = 0.0;
+static double t2 = 0.0;
+static double t3 = 0.0;
+static double t4 = 0.0;
+static double t5 = 0.0;
+static double t6 = 0.0;
+static double t7 = 0.0;
 /* ---------------------------------------------------------------------- */
 
 template<class NeighborClass>
@@ -150,6 +157,10 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
     ,*this);
+static int step =0;
+step++;
+if(step%10==0)
+        printf(" %e %e %e %e %e (%e %e): %e\n",t1,t2,t3,t4,t5,t6,t7,t1+t2+t3+t4+t5);
 }
 
 
@@ -531,6 +542,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
   delete[] found;
 }
 
+
 template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
 void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_type& team) const {
@@ -553,6 +565,7 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
   // rcutij = cutoffs for neighbors of I within cutoff
   // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
 
+  Kokkos::Timer timer;
   int ninside = 0;
   Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
       [&] (const int jj, int& count) {
@@ -570,6 +583,8 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
        count++;
     });
   },ninside);
+
+  t1 += timer.seconds(); timer.reset();
 
   if(team.team_rank() == 0)
   Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
@@ -597,11 +612,15 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
     }
   });
 
+  t2 += timer.seconds(); timer.reset();
+
   team.team_barrier();
   // compute Ui, Zi, and Bi for atom I
   my_sna.compute_ui(team,ninside);
+  t3 += timer.seconds(); timer.reset();
   team.team_barrier();
   my_sna.compute_zi(team);
+  t4 += timer.seconds(); timer.reset();
   team.team_barrier();
 
   // for neighbors of I within cutoff:
@@ -615,10 +634,12 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
       [&] (const int jj) {
   //for (int jj = 0; jj < ninside; jj++) {
     int j = my_sna.inside[jj];
+    Kokkos::Timer timer2;
     my_sna.compute_duidrj(team,&my_sna.rij(jj,0),
                            my_sna.wj[jj],my_sna.rcutij[jj]);
-
+    t6 += timer2.seconds(); timer2.reset();
     my_sna.compute_dbidrj(team);
+    t7 += timer2.seconds(); timer2.reset();
     my_sna.copy_dbi2dbvec(team);
 
 
@@ -657,4 +678,5 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
     f(j,2) -= fij[2];
     });
   });
+  t5 += timer.seconds(); timer.reset();
 }

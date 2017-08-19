@@ -258,8 +258,8 @@ void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
 	      z_r += sumb1_r * cgarray(j1,j2,j,ma1,ma2);
 	      z_i += sumb1_i * cgarray(j1,j2,j,ma1,ma2);
 	    } // end loop over ma1
-      zarray_r(j1,j2,j,ma,mb) = z_r;
-	    zarray_i(j1,j2,j,ma,mb) = z_i;
+      zarray_r(j1,j2,j,mb,ma) = z_r;
+	    zarray_i(j1,j2,j,mb,ma) = z_i;
 	  }); // end loop over ma, mb
     //  }
     //}
@@ -343,9 +343,7 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
   //              Conj(dudr(j2,ma2,mb2))*z(j1,j,j2,ma2,mb2)
   //        dbdr(j1,j2,j) += 2*zdb*(j+1)/(j2+1)
 
-  double* dbdr;
   double* dudr_r, *dudr_i;
-  double sumzdu_r[3];
   double jjjmambzarray_r;
   double jjjmambzarray_i;
 
@@ -359,15 +357,13 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     const int j2 = idxj[JJ].j2;
     const int j = idxj[JJ].j;
 
-    dbdr = &dbarray(j1,j2,j,0);
-    dbdr[0] = 0.0;
-    dbdr[1] = 0.0;
-    dbdr[2] = 0.0;
+//    dbdr = &dbarray(j1,j2,j,0);
+//    dbdr[0] = 0.0;
+//    dbdr[1] = 0.0;
+//    dbdr[2] = 0.0;
 
+    t_scalar3<double> dbdr,sumzdu_r;
     // Sum terms Conj(dudr(j,ma,mb))*z(j1,j2,j,ma,mb)
-
-    for(int k = 0; k < 3; k++)
-      sumzdu_r[k] = 0.0;
 
     // use zarray j1/j2 symmetry (optional)
 
@@ -389,14 +385,13 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     for(int mb = 0; 2*mb < j; mb++)
       for(int ma = 0; ma <= j; ma++) {
 
-        dudr_r = &duarray_r(j,ma,mb,0);
-        dudr_i = &duarray_i(j,ma,mb,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma,mb);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma,mb);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-            dudr_i[k] * jjjmambzarray_i;
+        dudr_r = &duarray_r(j,mb,ma,0);
+        dudr_i = &duarray_i(j,mb,ma,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma);
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
 
       } //end loop over ma mb
 
@@ -405,35 +400,31 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     if (j%2 == 0) {
       int mb = j/2;
       for(int ma = 0; ma < mb; ma++) {
-        dudr_r = &duarray_r(j,ma,mb,0);
-        dudr_i = &duarray_i(j,ma,mb,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma,mb);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma,mb);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-        dudr_i[k] * jjjmambzarray_i;
+        dudr_r = &duarray_r(j,mb,ma,0);
+        dudr_i = &duarray_i(j,mb,ma,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma);
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
       int ma = mb;
-      dudr_r = &duarray_r(j,ma,mb,0);
-      dudr_i = &duarray_i(j,ma,mb,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma,mb);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma,mb);
-      for(int k = 0; k < 3; k++)
-        sumzdu_r[k] +=
-            (dudr_r[k] * jjjmambzarray_r +
-             dudr_i[k] * jjjmambzarray_i)*0.5;
+      dudr_r = &duarray_r(j,mb,ma,0);
+      dudr_i = &duarray_i(j,mb,ma,0);
+      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma);
+      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma);
+      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
+      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
+      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if jeven
 
-    for(int k = 0; k < 3; k++)
-      dbdr[k] += 2.0*sumzdu_r[k];
+      dbdr += 2.0*sumzdu_r;
 
     // Sum over Conj(dudr(j1,ma1,mb1))*z(j,j2,j1,ma1,mb1)
 
     double j1fac = (j+1)/(j1+1.0);
 
-    for(int k = 0; k < 3; k++)
-      sumzdu_r[k] = 0.0;
+    sumzdu_r.x = 0.0; sumzdu_r.y = 0.0; sumzdu_r.z = 0.0;
 
     // use zarray j1/j2 symmetry (optional)
 
@@ -455,15 +446,13 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     for(int mb1 = 0; 2*mb1 < j1; mb1++)
       for(int ma1 = 0; ma1 <= j1; ma1++) {
 
-        dudr_r = &duarray_r(j1,ma1,mb1,0);
-        dudr_i = &duarray_i(j1,ma1,mb1,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma1,mb1);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma1,mb1);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-            dudr_i[k] * jjjmambzarray_i;
-
+        dudr_r = &duarray_r(j1,mb1,ma1,0);
+        dudr_i = &duarray_i(j1,mb1,ma1,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1);
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       } //end loop over ma1 mb1
 
     // For j1 even, handle middle column
@@ -471,35 +460,31 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     if (j1%2 == 0) {
       int mb1 = j1/2;
       for(int ma1 = 0; ma1 < mb1; ma1++) {
-        dudr_r = &duarray_r(j1,ma1,mb1,0);
-        dudr_i = &duarray_i(j1,ma1,mb1,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma1,mb1);
-	      jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma1,mb1);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-            dudr_i[k] * jjjmambzarray_i;
+        dudr_r = &duarray_r(j1,mb1,ma1,0);
+        dudr_i = &duarray_i(j1,mb1,ma1,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1);
+	      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
       int ma1 = mb1;
-      dudr_r = &duarray_r(j1,ma1,mb1,0);
-      dudr_i = &duarray_i(j1,ma1,mb1,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma1,mb1);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma1,mb1);
-      for(int k = 0; k < 3; k++)
-        sumzdu_r[k] +=
-            (dudr_r[k] * jjjmambzarray_r +
-             dudr_i[k] * jjjmambzarray_i)*0.5;
+      dudr_r = &duarray_r(j1,mb1,ma1,0);
+      dudr_i = &duarray_i(j1,mb1,ma1,0);
+      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1);
+      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1);
+      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
+      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
+      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if j1even
 
-    for(int k = 0; k < 3; k++)
-      dbdr[k] += 2.0*sumzdu_r[k]*j1fac;
+      dbdr += 2.0*sumzdu_r*j1fac;
 
     // Sum over Conj(dudr(j2,ma2,mb2))*z(j1,j,j2,ma2,mb2)
 
     double j2fac = (j+1)/(j2+1.0);
 
-    for(int k = 0; k < 3; k++)
-      sumzdu_r[k] = 0.0;
+    sumzdu_r.x = 0.0; sumzdu_r.y = 0.0; sumzdu_r.z = 0.0;
 
     // use zarray j1/j2 symmetry (optional)
 
@@ -520,14 +505,13 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     for(int mb2 = 0; 2*mb2 < j2; mb2++)
       for(int ma2 = 0; ma2 <= j2; ma2++) {
 
-        dudr_r = &duarray_r(j2,ma2,mb2,0);
-        dudr_i = &duarray_i(j2,ma2,mb2,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma2,mb2);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma2,mb2);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-            dudr_i[k] * jjjmambzarray_i;
+        dudr_r = &duarray_r(j2,mb2,ma2,0);
+        dudr_i = &duarray_i(j2,mb2,ma2,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2);
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       } //end loop over ma2 mb2
 
     // For j2 even, handle middle column
@@ -535,29 +519,28 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     if (j2%2 == 0) {
       int mb2 = j2/2;
       for(int ma2 = 0; ma2 < mb2; ma2++) {
-        dudr_r = &duarray_r(j2,ma2,mb2,0);
-        dudr_i = &duarray_i(j2,ma2,mb2,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma2,mb2);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma2,mb2);
-        for(int k = 0; k < 3; k++)
-          sumzdu_r[k] +=
-            dudr_r[k] * jjjmambzarray_r +
-            dudr_i[k] * jjjmambzarray_i;
+        dudr_r = &duarray_r(j2,mb2,ma2,0);
+        dudr_i = &duarray_i(j2,mb2,ma2,0);
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2);
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2);
+        sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
+        sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
+        sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
       int ma2 = mb2;
-      dudr_r = &duarray_r(j2,ma2,mb2,0);
-      dudr_i = &duarray_i(j2,ma2,mb2,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,ma2,mb2);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,ma2,mb2);
-      for(int k = 0; k < 3; k++)
-        sumzdu_r[k] +=
-          (dudr_r[k] * jjjmambzarray_r +
-           dudr_i[k] * jjjmambzarray_i)*0.5;
+      dudr_r = &duarray_r(j2,mb2,ma2,0);
+      dudr_i = &duarray_i(j2,mb2,ma2,0);
+      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2);
+      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2);
+      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
+      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
+      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if j2even
 
-    for(int k = 0; k < 3; k++)
-      dbdr[k] += 2.0*sumzdu_r[k]*j2fac;
-
+    dbdr += 2.0*sumzdu_r*j2fac;
+    dbarray(j1,j2,j,0) = dbdr.x;
+    dbarray(j1,j2,j,1) = dbdr.y;
+    dbarray(j1,j2,j,2) = dbdr.z;
   }); //end loop over j1 j2 j
 
 #ifdef TIMING_INFO
@@ -818,13 +801,13 @@ void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
 
     //for (int mb = 0; 2*mb <= j; mb++) {
       uarray_r(j,0,mb) = 0.0;
-      duarray_r(j,0,mb,0) = 0.0;
-      duarray_r(j,0,mb,1) = 0.0;
-      duarray_r(j,0,mb,2) = 0.0;
+      duarray_r(j,mb,0,0) = 0.0;
+      duarray_r(j,mb,0,1) = 0.0;
+      duarray_r(j,mb,0,2) = 0.0;
       uarray_i(j,0,mb) = 0.0;
-      duarray_i(j,0,mb,0) = 0.0;
-      duarray_i(j,0,mb,1) = 0.0;
-      duarray_i(j,0,mb,2) = 0.0;
+      duarray_i(j,mb,0,0) = 0.0;
+      duarray_i(j,mb,0,1) = 0.0;
+      duarray_i(j,mb,0,2) = 0.0;
 
       for (int ma = 0; ma < j; ma++) {
         rootpq = rootpqarray(j - ma,j - mb);
@@ -836,16 +819,16 @@ void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
                                 a_i *  uarray_r(j - 1,ma,mb));
 
         for (int k = 0; k < 3; k++) {
-          duarray_r(j,ma,mb,k) +=
+          duarray_r(j,mb,ma,k) +=
             rootpq * (da_r[k] * uarray_r(j - 1,ma,mb) +
                       da_i[k] * uarray_i(j - 1,ma,mb) +
-                      a_r * duarray_r(j - 1,ma,mb,k) +
-                      a_i * duarray_i(j - 1,ma,mb,k));
-          duarray_i(j,ma,mb,k) +=
+                      a_r * duarray_r(j - 1,mb,ma,k) +
+                      a_i * duarray_i(j - 1,mb,ma,k));
+          duarray_i(j,mb,ma,k) +=
             rootpq * (da_r[k] * uarray_i(j - 1,ma,mb) -
                       da_i[k] * uarray_r(j - 1,ma,mb) +
-                      a_r * duarray_i(j - 1,ma,mb,k) -
-                      a_i * duarray_r(j - 1,ma,mb,k));
+                      a_r * duarray_i(j - 1,mb,ma,k) -
+                      a_i * duarray_r(j - 1,mb,ma,k));
         }
 
 	rootpq = rootpqarray(ma + 1,j - mb);
@@ -857,16 +840,16 @@ void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
                      b_i *  uarray_r(j - 1,ma,mb));
 
         for (int k = 0; k < 3; k++) {
-          duarray_r(j,ma + 1,mb,k) =
+          duarray_r(j,mb,ma + 1,k) =
             -rootpq * (db_r[k] * uarray_r(j - 1,ma,mb) +
                        db_i[k] * uarray_i(j - 1,ma,mb) +
-                       b_r * duarray_r(j - 1,ma,mb,k) +
-                       b_i * duarray_i(j - 1,ma,mb,k));
-          duarray_i(j,ma + 1,mb,k) =
+                       b_r * duarray_r(j - 1,mb,ma,k) +
+                       b_i * duarray_i(j - 1,mb,ma,k));
+          duarray_i(j,mb,ma + 1,k) =
             -rootpq * (db_r[k] * uarray_i(j - 1,ma,mb) -
                        db_i[k] * uarray_r(j - 1,ma,mb) +
-                       b_r * duarray_i(j - 1,ma,mb,k) -
-                       b_i * duarray_r(j - 1,ma,mb,k));
+                       b_r * duarray_i(j - 1,mb,ma,k) -
+                       b_i * duarray_r(j - 1,mb,ma,k));
         }
       }
     });
@@ -883,15 +866,15 @@ void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
     	  uarray_r(j,j-ma,j-mb) = uarray_r(j,ma,mb);
     	  uarray_i(j,j-ma,j-mb) = -uarray_i(j,ma,mb);
     	  for (int k = 0; k < 3; k++) {
-    	    duarray_r(j,j-ma,j-mb,k) = duarray_r(j,ma,mb,k);
-    	    duarray_i(j,j-ma,j-mb,k) = -duarray_i(j,ma,mb,k);
+    	    duarray_r(j,j-mb,j-ma,k) = duarray_r(j,mb,ma,k);
+    	    duarray_i(j,j-mb,j-ma,k) = -duarray_i(j,mb,ma,k);
     	  }
     	} else {
     	  uarray_r(j,j-ma,j-mb) = -uarray_r(j,ma,mb);
     	  uarray_i(j,j-ma,j-mb) = uarray_i(j,ma,mb);
     	  for (int k = 0; k < 3; k++) {
-    	    duarray_r(j,j-ma,j-mb,k) = -duarray_r(j,ma,mb,k);
-    	    duarray_i(j,j-ma,j-mb,k) = duarray_i(j,ma,mb,k);
+    	    duarray_r(j,j-mb,j-ma,k) = -duarray_r(j,mb,ma,k);
+    	    duarray_i(j,j-mb,j-ma,k) = duarray_i(j,mb,ma,k);
     	  }
     	}
       }
@@ -905,20 +888,20 @@ void SNA::compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
   dsfac *= wj;
 
   for (int j = 0; j <= twojmax; j++)
-    for (int ma = 0; ma <= j; ma++)
-      for (int mb = 0; mb <= j; mb++) {
-        duarray_r(j,ma,mb,0) = dsfac * uarray_r(j,ma,mb) * ux +
-                                  sfac * duarray_r(j,ma,mb,0);
-        duarray_i(j,ma,mb,0) = dsfac * uarray_i(j,ma,mb) * ux +
-                                  sfac * duarray_i(j,ma,mb,0);
-        duarray_r(j,ma,mb,1) = dsfac * uarray_r(j,ma,mb) * uy +
-                                  sfac * duarray_r(j,ma,mb,1);
-        duarray_i(j,ma,mb,1) = dsfac * uarray_i(j,ma,mb) * uy +
-                                  sfac * duarray_i(j,ma,mb,1);
-        duarray_r(j,ma,mb,2) = dsfac * uarray_r(j,ma,mb) * uz +
-                                  sfac * duarray_r(j,ma,mb,2);
-        duarray_i(j,ma,mb,2) = dsfac * uarray_i(j,ma,mb) * uz +
-                                  sfac * duarray_i(j,ma,mb,2);
+    for (int mb = 0; mb <= j; mb++) 
+      for (int ma = 0; ma <= j; ma++) {
+        duarray_r(j,mb,ma,0) = dsfac * uarray_r(j,ma,mb) * ux +
+                                  sfac * duarray_r(j,mb,ma,0);
+        duarray_i(j,mb,ma,0) = dsfac * uarray_i(j,ma,mb) * ux +
+                                  sfac * duarray_i(j,mb,ma,0);
+        duarray_r(j,mb,ma,1) = dsfac * uarray_r(j,ma,mb) * uy +
+                                  sfac * duarray_r(j,mb,ma,1);
+        duarray_i(j,mb,ma,1) = dsfac * uarray_i(j,ma,mb) * uy +
+                                  sfac * duarray_i(j,mb,ma,1);
+        duarray_r(j,mb,ma,2) = dsfac * uarray_r(j,ma,mb) * uz +
+                                  sfac * duarray_r(j,mb,ma,2);
+        duarray_i(j,mb,ma,2) = dsfac * uarray_i(j,ma,mb) * uz +
+                                  sfac * duarray_i(j,mb,ma,2);
       }
 }
 

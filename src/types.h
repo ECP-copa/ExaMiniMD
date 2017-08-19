@@ -125,5 +125,19 @@ t_scalar3<Scalar> operator +
   (const t_scalar3<Scalar>& a, const t_scalar3<Scalar>& b) {
   return t_scalar3<Scalar>(a.x+b.x,a.y+b.y,a.z+b.z);
 }
+
+template<class Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+t_scalar3<Scalar> operator *
+  (const t_scalar3<Scalar>& a, const Scalar& b) {
+  return t_scalar3<Scalar>(a.x*b,a.y*b,a.z*b);
+}
+
+template<class Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+t_scalar3<Scalar> operator *
+  (const Scalar& b, const t_scalar3<Scalar>& a) {
+  return t_scalar3<Scalar>(a.x*b,a.y*b,a.z*b);
+}
 #endif
 
