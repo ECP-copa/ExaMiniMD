@@ -243,20 +243,28 @@ void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
 
 	      const int ma2 = (2 * ma - j - (2 * ma1 - j1) + j2) / 2;
 
-	      for(int mb1 = MAX(0, (2 * mb - j - j2 + j1) / 2);
-              mb1 <= MIN(j1, (2 * mb - j + j2 + j1) / 2); mb1++) {
+	      for(int mb1  = MAX( 0, (2 * mb - j - j2 + j1) / 2);
+                mb1 <= MIN(j1, (2 * mb - j + j2 + j1) / 2); mb1++) {
 
 		const int mb2 = (2 * mb - j - (2 * mb1 - j1) + j2) / 2;
-		sumb1_r += cgarray(j1,j2,j,mb1,mb2) *
+    const double cga = cgarray(j1,j2,j,mb1,mb2);
+    const double uat1_r = uarraytot_r(j1,ma1,mb1);
+    const double uat1_i = uarraytot_i(j1,ma1,mb1);
+    const double uat2_r = uarraytot_r(j2,ma2,mb2);
+    const double uat2_i = uarraytot_i(j2,ma2,mb2);
+    sumb1_r += cga * (uat1_r * uat2_r - uat1_i * uat2_i);
+    sumb1_i += cga * (uat1_r * uat2_i + uat1_i * uat2_r);
+		/*sumb1_r += cgarray(j1,j2,j,mb1,mb2) *
 		  (uarraytot_r(j1,ma1,mb1) * uarraytot_r(j2,ma2,mb2) -
 		   uarraytot_i(j1,ma1,mb1) * uarraytot_i(j2,ma2,mb2));
 		sumb1_i += cgarray(j1,j2,j,mb1,mb2) *
 		  (uarraytot_r(j1,ma1,mb1) * uarraytot_i(j2,ma2,mb2) +
-		   uarraytot_i(j1,ma1,mb1) * uarraytot_r(j2,ma2,mb2));
+		   uarraytot_i(j1,ma1,mb1) * uarraytot_r(j2,ma2,mb2));*/
 	      } // end loop over mb1
 
-	      z_r += sumb1_r * cgarray(j1,j2,j,ma1,ma2);
-	      z_i += sumb1_i * cgarray(j1,j2,j,ma1,ma2);
+        const double cga = cgarray(j1,j2,j,ma1,ma2);
+	      z_r += sumb1_r * cga;//rray(j1,j2,j,ma1,ma2);
+	      z_i += sumb1_i * cga;//rray(j1,j2,j,ma1,ma2);
 	    } // end loop over ma1
       zarray_r(j1,j2,j,mb,ma) = z_r;
 	    zarray_i(j1,j2,j,mb,ma) = z_i;
@@ -399,23 +407,16 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
 
     if (j%2 == 0) {
       int mb = j/2;
-      for(int ma = 0; ma < mb; ma++) {
+      for(int ma = 0; ma <= mb; ma++) {
         dudr_r = &duarray_r(j,mb,ma,0);
         dudr_i = &duarray_i(j,mb,ma,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma);
+        const double factor = ma==mb?0.5:1.0;
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma) * factor;
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma) * factor;
         sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
         sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
         sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
-      int ma = mb;
-      dudr_r = &duarray_r(j,mb,ma,0);
-      dudr_i = &duarray_i(j,mb,ma,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb,ma);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb,ma);
-      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
-      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
-      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if jeven
 
       dbdr += 2.0*sumzdu_r;
@@ -458,24 +459,17 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     // For j1 even, handle middle column
 
     if (j1%2 == 0) {
-      int mb1 = j1/2;
-      for(int ma1 = 0; ma1 < mb1; ma1++) {
+      const int mb1 = j1/2;
+      for(int ma1 = 0; ma1 <= mb1; ma1++) {
         dudr_r = &duarray_r(j1,mb1,ma1,0);
         dudr_i = &duarray_i(j1,mb1,ma1,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1);
-	      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1);
+        const double factor = ma1==mb1?0.5:1.0;
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1) * factor;
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1) * factor;
         sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
         sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
         sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
-      int ma1 = mb1;
-      dudr_r = &duarray_r(j1,mb1,ma1,0);
-      dudr_i = &duarray_i(j1,mb1,ma1,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb1,ma1);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb1,ma1);
-      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
-      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
-      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if j1even
 
       dbdr += 2.0*sumzdu_r*j1fac;
@@ -517,24 +511,17 @@ void SNA::compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team)
     // For j2 even, handle middle column
 
     if (j2%2 == 0) {
-      int mb2 = j2/2;
-      for(int ma2 = 0; ma2 < mb2; ma2++) {
+      const int mb2 = j2/2;
+      for(int ma2 = 0; ma2 <= mb2; ma2++) {
         dudr_r = &duarray_r(j2,mb2,ma2,0);
         dudr_i = &duarray_i(j2,mb2,ma2,0);
-        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2);
-        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2);
+        const double factor = ma2==mb2?0.5:1.0;
+        jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2) * factor;
+        jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2) * factor;
         sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i);
         sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i);
         sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i);
       }
-      int ma2 = mb2;
-      dudr_r = &duarray_r(j2,mb2,ma2,0);
-      dudr_i = &duarray_i(j2,mb2,ma2,0);
-      jjjmambzarray_r = zarray_r(j1_,j2_,j_,mb2,ma2);
-      jjjmambzarray_i = zarray_i(j1_,j2_,j_,mb2,ma2);
-      sumzdu_r.x += (dudr_r[0] * jjjmambzarray_r + dudr_i[0] * jjjmambzarray_i)*0.5;
-      sumzdu_r.y += (dudr_r[1] * jjjmambzarray_r + dudr_i[1] * jjjmambzarray_i)*0.5;
-      sumzdu_r.z += (dudr_r[2] * jjjmambzarray_r + dudr_i[2] * jjjmambzarray_i)*0.5;
     } // end if j2even
 
     dbdr += 2.0*sumzdu_r*j2fac;
