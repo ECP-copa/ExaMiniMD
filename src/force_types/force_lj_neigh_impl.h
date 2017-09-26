@@ -2,9 +2,10 @@
 
 template<class NeighborClass>
 ForceLJNeigh<NeighborClass>::ForceLJNeigh(char** args, System* system, bool half_neigh_):Force(args,system,half_neigh_) {
-  lj1 = t_fparams("ForceLJNeigh::lj1",system->ntypes,system->ntypes);
-  lj2 = t_fparams("ForceLJNeigh::lj2",system->ntypes,system->ntypes);
-  cutsq = t_fparams("ForceLJNeigh::cutsq",system->ntypes,system->ntypes);
+  ntypes = system->ntypes;
+  lj1 = t_fparams("ForceLJNeigh::lj1",ntypes,ntypes);
+  lj2 = t_fparams("ForceLJNeigh::lj2",ntypes,ntypes);
+  cutsq = t_fparams("ForceLJNeigh::cutsq",ntypes,ntypes);
   nbinx = nbiny = nbinz = 0;
   N_local = 0;
   nhalo = 0;
@@ -42,6 +43,16 @@ void ForceLJNeigh<NeighborClass>::init_coeff(int nargs, char** args) {
   rnd_lj2 = lj2;
   rnd_cutsq = cutsq;
   step = 0;
+
+  for (int i = 0; i < ntypes; i++) {
+    for (int j = i; j < ntypes; j++) {
+      if (i < MAX_TYPES_STACKPARAMS+1 && j < MAX_TYPES_STACKPARAMS+1) {
+        stack_lj1[i][j] = stack_lj1[j][i] = h_lj1(i,j);
+        stack_lj2[i][j] = stack_lj2[j][i] = h_lj2(i,j);
+        stack_cutsq[j][i] = stack_cutsq[i][j] = cut*cut;
+      }
+    }
+  }
 };
 
 template<class NeighborClass>
@@ -56,10 +67,17 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   f_a = system->f;
   type = system->type;
   id = system->id;
-  if(half_neigh)
-    Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh(0, system->N_local), *this);
-  else
-    Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
+  if (ntypes > MAX_TYPES_STACKPARAMS) {
+    if(half_neigh)
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh(0, system->N_local), *this);
+    else
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
+  } else {
+    if(half_neigh)
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh_stackparams(0, system->N_local), *this);
+    else
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh_stackparams(0, system->N_local), *this);
+  }
   Kokkos::fence();
 
   step++;
@@ -78,10 +96,17 @@ T_V_FLOAT ForceLJNeigh<NeighborClass>::compute_energy(System* system, Binning* b
   type = system->type;
   id = system->id;
   T_V_FLOAT energy;
-  if(half_neigh)
-    Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, energy);
-  else
-    Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, energy);
+  if (ntypes > MAX_TYPES_STACKPARAMS) {
+    if(half_neigh)
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, energy);
+    else
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, energy);
+  } else {
+    if(half_neigh)
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe_stackparams(0, system->N_local), *this, energy);
+    else
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe_stackparams(0, system->N_local), *this, energy);
+  }
   Kokkos::fence();
 
   step++;
@@ -92,8 +117,9 @@ template<class NeighborClass>
 const char* ForceLJNeigh<NeighborClass>::name() { return half_neigh?"ForceLJNeighHalf":"ForceLJNeighFull"; }
 
 template<class NeighborClass>
+template<bool STACKPARAMS>
 KOKKOS_INLINE_FUNCTION
-void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh, const T_INT& i) const {
+void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T_INT& i) const {
   const T_F_FLOAT x_i = x(i,0);
   const T_F_FLOAT y_i = x(i,1);
   const T_F_FLOAT z_i = x(i,2);
@@ -116,11 +142,15 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh, const T_INT& i) cons
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-    if( rsq < rnd_cutsq(type_i,type_j) ) {
+    const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
+    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
+
+    if( rsq < cutsq_ij ) {
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-      T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
+      T_F_FLOAT fpair = (r6inv * (lj1_ij*r6inv - lj2_ij)) * r2inv;
       fxi += dx*fpair;
       fyi += dy*fpair;
       fzi += dz*fpair;
@@ -134,8 +164,9 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh, const T_INT& i) cons
 }
 
 template<class NeighborClass>
+template<bool STACKPARAMS>
 KOKKOS_INLINE_FUNCTION
-void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh, const T_INT& i) const {
+void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh<STACKPARAMS>, const T_INT& i) const {
   const T_F_FLOAT x_i = x(i,0);
   const T_F_FLOAT y_i = x(i,1);
   const T_F_FLOAT z_i = x(i,2);
@@ -157,11 +188,15 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh, const T_INT& i) cons
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-    if( rsq < rnd_cutsq(type_i,type_j) ) {
+    const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
+    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
+
+    if( rsq < cutsq_ij ) {
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-      T_F_FLOAT fpair = (r6inv * (rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j))) * r2inv;
+      T_F_FLOAT fpair = (r6inv * (lj1_ij*r6inv - lj2_ij)) * r2inv;
       fxi += dx*fpair;
       fyi += dy*fpair;
       fzi += dz*fpair;
@@ -177,8 +212,9 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh, const T_INT& i) cons
 }
 
 template<class NeighborClass>
+template<bool STACKPARAMS>
 KOKKOS_INLINE_FUNCTION
-void ForceLJNeigh<NeighborClass>::operator() (TagFullNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+void ForceLJNeigh<NeighborClass>::operator() (TagFullNeighPE<STACKPARAMS>, const T_INT& i, T_V_FLOAT& PE) const {
   const T_F_FLOAT x_i = x(i,0);
   const T_F_FLOAT y_i = x(i,1);
   const T_F_FLOAT z_i = x(i,2);
@@ -198,24 +234,29 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeighPE, const T_INT& i, T_
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-    if( rsq < rnd_cutsq(type_i,type_j) ) {
+    const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
+    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
+
+    if( rsq < cutsq_ij ) {
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
-      PE += 0.5*r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
+      PE += 0.5*r6inv * (0.5*lj1_ij*r6inv - lj2_ij) / 6.0; // optimize later
 
       if (shift_flag) {
-        T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
+        T_F_FLOAT r2invc = 1.0/cutsq_ij;
         T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
-        PE -= 0.5*r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0; // optimize later
+        PE -= 0.5*r6invc * (0.5*lj1_ij*r6invc - lj2_ij) / 6.0; // optimize later
       }
     }
   }
 }
 
 template<class NeighborClass>
+template<bool STACKPARAMS>
 KOKKOS_INLINE_FUNCTION
-void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE, const T_INT& i, T_V_FLOAT& PE) const {
+void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE<STACKPARAMS>, const T_INT& i, T_V_FLOAT& PE) const {
   const T_F_FLOAT x_i = x(i,0);
   const T_F_FLOAT y_i = x(i,1);
   const T_F_FLOAT z_i = x(i,2);
@@ -235,7 +276,11 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE, const T_INT& i, T_
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
-    if( rsq < rnd_cutsq(type_i,type_j) ) {
+    const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
+    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
+
+    if( rsq < cutsq_ij ) {
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -243,12 +288,12 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE, const T_INT& i, T_
       if(j<N_local) fac = 1.0;
       else fac = 0.5;
 
-      PE += fac * r6inv * (0.5*rnd_lj1(type_i,type_j)*r6inv - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
+      PE += fac * r6inv * (0.5*lj1_ij*r6inv - lj2_ij) / 6.0;  // optimize later
 
       if (shift_flag) {
-        T_F_FLOAT r2invc = 1.0/rnd_cutsq(type_i,type_j);
+        T_F_FLOAT r2invc = 1.0/cutsq_ij;
         T_F_FLOAT r6invc = r2invc*r2invc*r2invc;
-        PE -= fac * r6invc * (0.5*rnd_lj1(type_i,type_j)*r6invc - rnd_lj2(type_i,type_j)) / 6.0;  // optimize later
+        PE -= fac * r6invc * (0.5*lj1_ij*r6invc - lj2_ij) / 6.0;  // optimize later
       }
     }
   }
