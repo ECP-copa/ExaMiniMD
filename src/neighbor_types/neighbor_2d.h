@@ -100,6 +100,7 @@ protected:
   typename Binning::t_permute_vector permute_vector;
 
   Kokkos::View<T_INT, MemorySpace> resize,new_maxneighs;
+  typename Kokkos::View<T_INT, MemorySpace>::HostMirror h_resize,h_new_maxneighs;
 
 
 public:
@@ -119,6 +120,9 @@ public:
 
     resize = Kokkos::View<T_INT, MemorySpace> ("Neighbor2D::resize");
     new_maxneighs = Kokkos::View<T_INT, MemorySpace> ("Neighbor2D::new_maxneighs");
+
+    h_resize = Kokkos::create_mirror_view(resize);
+    h_new_maxneighs = Kokkos::create_mirror_view(new_maxneighs);
   };
   ~Neighbor2D() {};
 
@@ -260,13 +264,10 @@ public:
     bin_count = binning->bincount;
     permute_vector = binning->permute_vector;
 
-    auto h_resize = Kokkos::create_mirror_view(resize);
-    auto h_new_maxneighs = Kokkos::create_mirror_view(new_maxneighs);
-
     do {
 
       // Resize NeighborList
-      if( neigh_list.neighs.extent(1) < neigh_list.maxneighs )
+      if( neigh_list.neighs.extent(0) < N_local + 1 || neigh_list.neighs.extent(1) < neigh_list.maxneighs )
         neigh_list.neighs = Kokkos::View<T_INT**, MemorySpace> ("Neighbor2D::neighs", N_local + 1, neigh_list.maxneighs);
 
 
