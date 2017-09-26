@@ -45,11 +45,11 @@ void ForceLJNeigh<NeighborClass>::init_coeff(int nargs, char** args) {
   step = 0;
 
   for (int i = 0; i < ntypes; i++) {
-    for (int j = i; j < ntypes; j++) {
+    for (int j = 0; j < ntypes; j++) {
       if (i < MAX_TYPES_STACKPARAMS+1 && j < MAX_TYPES_STACKPARAMS+1) {
-        stack_lj1[i][j] = stack_lj1[j][i] = h_lj1(i,j);
-        stack_lj2[i][j] = stack_lj2[j][i] = h_lj2(i,j);
-        stack_cutsq[j][i] = stack_cutsq[i][j] = cut*cut;
+        stack_lj1[i][j] = h_lj1(i,j);
+        stack_lj2[i][j] = h_lj2(i,j);
+        stack_cutsq[j][i] = cut*cut;
       }
     }
   }
