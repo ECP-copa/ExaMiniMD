@@ -3,9 +3,12 @@
 template<class NeighborClass>
 ForceLJNeigh<NeighborClass>::ForceLJNeigh(char** args, System* system, bool half_neigh_):Force(args,system,half_neigh_) {
   ntypes = system->ntypes;
-  lj1 = t_fparams("ForceLJNeigh::lj1",ntypes,ntypes);
-  lj2 = t_fparams("ForceLJNeigh::lj2",ntypes,ntypes);
-  cutsq = t_fparams("ForceLJNeigh::cutsq",ntypes,ntypes);
+  use_stackparams = (ntypes <= MAX_TYPES_STACKPARAMS);
+  if (!use_stackparams) {
+    lj1 = t_fparams("ForceLJNeigh::lj1",ntypes,ntypes);
+    lj2 = t_fparams("ForceLJNeigh::lj2",ntypes,ntypes);
+    cutsq = t_fparams("ForceLJNeigh::cutsq",ntypes,ntypes);
+  }
   nbinx = nbiny = nbinz = 0;
   N_local = 0;
   nhalo = 0;
@@ -14,6 +17,8 @@ ForceLJNeigh<NeighborClass>::ForceLJNeigh(char** args, System* system, bool half
 
 template<class NeighborClass>
 void ForceLJNeigh<NeighborClass>::init_coeff(int nargs, char** args) {
+  step = 0;
+
   int one_based_type = 1;
   int t1 = atoi(args[1])-one_based_type;
   int t2 = atoi(args[2])-one_based_type;
@@ -21,37 +26,36 @@ void ForceLJNeigh<NeighborClass>::init_coeff(int nargs, char** args) {
   double sigma = atof(args[4]);
   double cut = atof(args[5]);
 
-  t_fparams::HostMirror h_lj1 = Kokkos::create_mirror_view(lj1);
-  t_fparams::HostMirror h_lj2 = Kokkos::create_mirror_view(lj2);
-  t_fparams::HostMirror h_cutsq = Kokkos::create_mirror_view(cutsq);
-  Kokkos::deep_copy(h_lj1,lj1);
-  Kokkos::deep_copy(h_lj2,lj2);
-  Kokkos::deep_copy(h_cutsq,cutsq);
-
-  h_lj1(t1,t2) = 48.0 * eps * pow(sigma,12.0);
-  h_lj2(t1,t2) = 24.0 * eps * pow(sigma,6.0);
-  h_lj1(t2,t1) = h_lj1(t1,t2);
-  h_lj2(t2,t1) = h_lj2(t1,t2);
-  h_cutsq(t1,t2) = cut*cut;
-  h_cutsq(t2,t1) = cut*cut;
-
-  Kokkos::deep_copy(lj1,h_lj1);
-  Kokkos::deep_copy(lj2,h_lj2);
-  Kokkos::deep_copy(cutsq,h_cutsq);
-
-  rnd_lj1 = lj1;
-  rnd_lj2 = lj2;
-  rnd_cutsq = cutsq;
-  step = 0;
-
-  for (int i = 0; i < ntypes; i++) {
-    for (int j = 0; j < ntypes; j++) {
-      if (i < MAX_TYPES_STACKPARAMS+1 && j < MAX_TYPES_STACKPARAMS+1) {
-        stack_lj1[i][j] = h_lj1(i,j);
-        stack_lj2[i][j] = h_lj2(i,j);
-        stack_cutsq[j][i] = cut*cut;
+  if (use_stackparams) {
+    for (int i = 0; i < ntypes; i++) {
+      for (int j = 0; j < ntypes; j++) {
+        stack_lj1[i][j] = 48.0 * eps * pow(sigma,12.0);
+        stack_lj2[i][j] = 24.0 * eps * pow(sigma,6.0);
+        stack_cutsq[i][j] = cut*cut;
       }
     }
+  } else {
+    t_fparams::HostMirror h_lj1 = Kokkos::create_mirror_view(lj1);
+    t_fparams::HostMirror h_lj2 = Kokkos::create_mirror_view(lj2);
+    t_fparams::HostMirror h_cutsq = Kokkos::create_mirror_view(cutsq);
+    Kokkos::deep_copy(h_lj1,lj1);
+    Kokkos::deep_copy(h_lj2,lj2);
+    Kokkos::deep_copy(h_cutsq,cutsq);
+
+    h_lj1(t1,t2) = 48.0 * eps * pow(sigma,12.0);
+    h_lj2(t1,t2) = 24.0 * eps * pow(sigma,6.0);
+    h_lj1(t2,t1) = h_lj1(t1,t2);
+    h_lj2(t2,t1) = h_lj2(t1,t2);
+    h_cutsq(t1,t2) = cut*cut;
+    h_cutsq(t2,t1) = cut*cut;
+
+    Kokkos::deep_copy(lj1,h_lj1);
+    Kokkos::deep_copy(lj2,h_lj2);
+    Kokkos::deep_copy(cutsq,h_cutsq);
+
+    rnd_lj1 = lj1;
+    rnd_lj2 = lj2;
+    rnd_cutsq = cutsq;
   }
 };
 
@@ -67,16 +71,16 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   f_a = system->f;
   type = system->type;
   id = system->id;
-  if (ntypes > MAX_TYPES_STACKPARAMS) {
-    if(half_neigh)
-      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh(0, system->N_local), *this);
-    else
-      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
-  } else {
+  if (use_stackparams) {
     if(half_neigh)
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh_stackparams(0, system->N_local), *this);
     else
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh_stackparams(0, system->N_local), *this);
+  } else {
+    if(half_neigh)
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh(0, system->N_local), *this);
+    else
+      Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
   }
   Kokkos::fence();
 
@@ -96,16 +100,16 @@ T_V_FLOAT ForceLJNeigh<NeighborClass>::compute_energy(System* system, Binning* b
   type = system->type;
   id = system->id;
   T_V_FLOAT energy;
-  if (ntypes > MAX_TYPES_STACKPARAMS) {
-    if(half_neigh)
-      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, energy);
-    else
-      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, energy);
-  } else {
+  if (use_stackparams) {
     if(half_neigh)
       Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe_stackparams(0, system->N_local), *this, energy);
     else
       Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe_stackparams(0, system->N_local), *this, energy);
+  } else {
+    if(half_neigh)
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_half_neigh_pe(0, system->N_local), *this, energy);
+    else
+      Kokkos::parallel_reduce("ForceLJNeigh::compute_energy", t_policy_full_neigh_pe(0, system->N_local), *this, energy);
   }
   Kokkos::fence();
 
