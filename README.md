@@ -31,6 +31,7 @@ git clone https://github.com/kokkos/kokkos ~/kokkos
  * Lennard-Jones Neighbor List
 
 ### Neighbor List:
+ * 2D NeighborList creation
  * CSR NeighborList creation
 
 ### Integrator:
