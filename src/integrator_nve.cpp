@@ -76,7 +76,7 @@ namespace {
 
 void IntegratorNVE::final_integrate() {
   static int step = 1;
-  Kokkos::parallel_for("IntegratorNVE::initial_integrate",system->N_local, 
+  Kokkos::parallel_for("IntegratorNVE::final_integrate",system->N_local, 
                        FinalIntegrateFunctor(system->v, system->f,
                                              system->type, system->mass, dtf, dtv, system->id, step, system->x));
   step++;
