@@ -90,7 +90,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 #else
   comm_type = COMM_SERIAL;
 #endif
-  neighbor_type = NEIGH_CSR;
+  neighbor_type = NEIGH_2D;
   force_iteration_type = FORCE_ITER_NEIGH_FULL;
   binning_type = BINNING_KKSORT;
   comm_exchange_rate = 20;
@@ -129,7 +129,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("                              (N = positive integer)\n");
         printf("                              (PATH = location of directory)\n");
         printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
-        printf("                              (CSR, CSR_MAPCONSTR)\n");
+        printf("                              (2D, CSR, CSR_MAPCONSTR)\n");
       }
       continue;
     }

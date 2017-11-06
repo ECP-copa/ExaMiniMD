@@ -37,6 +37,7 @@ private:
   Binning::t_binoffsets bin_offsets;
   T_INT nbinx,nbiny,nbinz,nhalo;
   int step;
+  bool use_stackparams;
 
   typedef Kokkos::View<T_F_FLOAT**> t_fparams;
   typedef Kokkos::View<const T_F_FLOAT**,
