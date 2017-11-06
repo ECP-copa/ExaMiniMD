@@ -143,10 +143,10 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
     const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
-    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
-    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
     if( rsq < cutsq_ij ) {
+      const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+      const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -189,10 +189,10 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh<STACKPARAMS>, const T
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
     const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
-    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
-    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
     if( rsq < cutsq_ij ) {
+      const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+      const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -235,10 +235,10 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeighPE<STACKPARAMS>, const
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
     const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
-    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
-    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
     if( rsq < cutsq_ij ) {
+      const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+      const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -277,10 +277,10 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE<STACKPARAMS>, const
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
     const T_F_FLOAT cutsq_ij = STACKPARAMS?stack_cutsq[type_i][type_j]:rnd_cutsq(type_i,type_j);
-    const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
-    const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
     if( rsq < cutsq_ij ) {
+      const T_F_FLOAT lj1_ij = STACKPARAMS?stack_lj1[type_i][type_j]:rnd_lj1(type_i,type_j);
+      const T_F_FLOAT lj2_ij = STACKPARAMS?stack_lj2[type_i][type_j]:rnd_lj2(type_i,type_j);
 
       T_F_FLOAT r2inv = 1.0/rsq;
       T_F_FLOAT r6inv = r2inv*r2inv*r2inv;
