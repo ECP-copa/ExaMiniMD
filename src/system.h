@@ -29,6 +29,7 @@ public:
   t_x x;         // Positions
   t_v v;         // Velocities
   t_f f;         // Forces
+  t_f_duplicated f_r;         // Duplicated Forces
 
   t_type type;   // Particle Type
   t_id   id;     // Particle ID

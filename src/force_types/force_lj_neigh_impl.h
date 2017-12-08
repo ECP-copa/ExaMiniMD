@@ -85,10 +85,8 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   }
   Kokkos::fence();
 
-  if(half_neigh) {
+  if(half_neigh)
     Kokkos::Experimental::contribute(system->f, f_r);
-    f_r = decltype(f_r)();
-  }
 
   step++;
 }

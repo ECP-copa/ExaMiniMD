@@ -59,7 +59,8 @@ void System::grow(T_INT N_new) {
 
     Kokkos::resize(x,N_max);      // Positions
     Kokkos::resize(v,N_max);      // Velocities
-    Kokkos::resize(f,N_max);      // Forces
+    Kokkos::resize(f_r,N_max);      // Forces
+    f = f_r.subview();
 
     Kokkos::resize(id,N_max);     // Id
 
