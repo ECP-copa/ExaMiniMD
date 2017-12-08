@@ -68,7 +68,8 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   N_local = system->N_local;
   x = system->x;
   f = system->f;
-  f_a = system->f;
+  //f_a = system->f;
+  f_r = Kokkos::Experimental::create_reduction_view<>(system->f);
   type = system->type;
   id = system->id;
   if (use_stackparams) {
@@ -84,6 +85,11 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   }
   Kokkos::fence();
 
+  if(half_neigh) {
+    Kokkos::Experimental::contribute(system->f, f_r);
+    f_r = decltype(f_r)();
+  }
+
   step++;
 }
 
@@ -95,8 +101,6 @@ T_V_FLOAT ForceLJNeigh<NeighborClass>::compute_energy(System* system, Binning* b
 
   N_local = system->N_local;
   x = system->x;
-  f = system->f;
-  f_a = system->f;
   type = system->type;
   id = system->id;
   T_V_FLOAT energy;
@@ -171,6 +175,8 @@ template<class NeighborClass>
 template<bool STACKPARAMS>
 KOKKOS_INLINE_FUNCTION
 void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeigh<STACKPARAMS>, const T_INT& i) const {
+  auto f_a = f_r.access();
+
   const T_F_FLOAT x_i = x(i,0);
   const T_F_FLOAT y_i = x(i,1);
   const T_F_FLOAT z_i = x(i,2);

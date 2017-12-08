@@ -1,6 +1,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 #include<Kokkos_Core.hpp>
+#include<Kokkos_ReductionView.hpp>
 
 // Module Types etc
 // Units to be used
@@ -60,6 +61,7 @@ typedef Kokkos::View<T_F_FLOAT*[3],
     Kokkos::MemoryTraits<Kokkos::Atomic>>
 #endif
         t_f_atomic;   // Force
+typedef Kokkos::Experimental::ReductionView<T_F_FLOAT*[3]>  t_f_duplicated;   // Force
 typedef Kokkos::View<const T_F_FLOAT*[3]> t_f_const;    // Force
 
 typedef Kokkos::View<int*>                t_type;       // Type (int is enough as type)
