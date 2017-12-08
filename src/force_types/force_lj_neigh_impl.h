@@ -69,7 +69,7 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   x = system->x;
   f = system->f;
   //f_a = system->f;
-  f_r = Kokkos::Experimental::create_reduction_view<>(system->f);
+  f_r = Kokkos::Experimental::create_scatter_view<>(system->f);
   type = system->type;
   id = system->id;
   if (use_stackparams) {
