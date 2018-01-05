@@ -224,8 +224,8 @@ void SNA::compute_zi(const Kokkos::TeamPolicy<>::member_type& team)
     const int j2 = idxj_full(idx).j2;
     const int j =  idxj_full(idx).j;
 
-
-    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+1)*(j+1)),
+    const int bound = (j+2)/2;
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(team,(j+1)*bound),
         [&] (const int mbma ) {
 	//for(int mb = 0; 2*mb <= j; mb++)
 	  //for(int ma = 0; ma <= j; ma++) {
