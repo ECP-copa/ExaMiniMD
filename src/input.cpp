@@ -426,26 +426,12 @@ void Input::create_lattice(Comm* comm) {
 
   // Create Simple Cubic Lattice
   if(lattice_style == LATTICE_SC) {
-    system->grow(lattice_nx*lattice_ny*lattice_nz);
-    s = *system;
-    h_x = Kokkos::create_mirror_view(s.x);
-    h_v = Kokkos::create_mirror_view(s.v);
-    h_q = Kokkos::create_mirror_view(s.q);
-    h_type = Kokkos::create_mirror_view(s.type);
-    h_id = Kokkos::create_mirror_view(s.id);
-
     system->domain_x = lattice_constant * lattice_nx; 
     system->domain_y = lattice_constant * lattice_ny; 
     system->domain_z = lattice_constant * lattice_nz; 
-    T_INT n = 0;
 
     comm->create_domain_decomposition();
     s = *system;
-
-    // Initialize system using the equivalent of the LAMMPS
-    // velocity geom option, i.e. uniform random kinetic energies.
-    // zero out momentum of the whole system afterwards, to eliminate
-    // drift (bad for energy statistics)
 
     T_INT ix_start = s.sub_domain_lo_x/s.domain_x * lattice_nx - 0.5;
     T_INT iy_start = s.sub_domain_lo_y/s.domain_y * lattice_ny - 0.5;
@@ -454,6 +440,40 @@ void Input::create_lattice(Comm* comm) {
     T_INT ix_end = s.sub_domain_hi_x/s.domain_x * lattice_nx + 0.5;
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
+
+    T_INT n = 0;
+
+    for(T_INT iz=iz_start; iz<=iz_end; iz++) {
+      T_FLOAT ztmp = lattice_constant * (iz+lattice_offset_z);
+      for(T_INT iy=iy_start; iy<=iy_end; iy++) {
+        T_FLOAT ytmp = lattice_constant * (iy+lattice_offset_y);
+        for(T_INT ix=ix_start; ix<=ix_end; ix++) {
+          T_FLOAT xtmp = lattice_constant * (ix+lattice_offset_x);
+          if((xtmp >= s.sub_domain_lo_x) &&
+             (ytmp >= s.sub_domain_lo_y) &&
+             (ztmp >= s.sub_domain_lo_z) &&
+             (xtmp <  s.sub_domain_hi_x) &&
+             (ytmp <  s.sub_domain_hi_y) &&
+             (ztmp <  s.sub_domain_hi_z) ) {
+            n++;
+          }
+        }
+      }
+    }
+    system->N_local = n;
+    system->N = n;
+    system->grow(n);
+    s = *system;
+    h_x = Kokkos::create_mirror_view(s.x);
+    h_v = Kokkos::create_mirror_view(s.v);
+    h_q = Kokkos::create_mirror_view(s.q);
+    h_type = Kokkos::create_mirror_view(s.type);
+    h_id = Kokkos::create_mirror_view(s.id);
+
+    // Initialize system using the equivalent of the LAMMPS
+    // velocity geom option, i.e. uniform random kinetic energies.
+    // zero out momentum of the whole system afterwards, to eliminate
+    // drift (bad for energy statistics)
 
     for(T_INT iz=iz_start; iz<=iz_end; iz++) {
       T_FLOAT ztmp = lattice_constant * (iz+lattice_offset_z);
@@ -477,8 +497,6 @@ void Input::create_lattice(Comm* comm) {
         }
       }
     }
-    system->N_local = n;
-    system->N = n;
     comm->reduce_int(&system->N,1);
 
     // Make ids unique over all processes
@@ -493,27 +511,12 @@ void Input::create_lattice(Comm* comm) {
 
   // Create Face Centered Cubic (FCC) Lattice
   if(lattice_style == LATTICE_FCC) {
-    system->grow(4*lattice_nx*lattice_ny*lattice_nz);
-    s = *system;
-    h_x = Kokkos::create_mirror_view(s.x);
-    h_v = Kokkos::create_mirror_view(s.v);
-    h_q = Kokkos::create_mirror_view(s.q);
-    h_type = Kokkos::create_mirror_view(s.type);
-    h_id = Kokkos::create_mirror_view(s.id);
-
     system->domain_x = lattice_constant * lattice_nx;
     system->domain_y = lattice_constant * lattice_ny;
     system->domain_z = lattice_constant * lattice_nz;
 
-    T_INT n = 0;
-
     comm->create_domain_decomposition();
     s = *system;
-
-    // Initialize system using the equivalent of the LAMMPS
-    // velocity geom option, i.e. uniform random kinetic energies.
-    // zero out momentum of the whole system afterwards, to eliminate
-    // drift (bad for energy statistics)
 
     double basis[4][3];
     basis[0][0] = 0.0; basis[0][1] = 0.0; basis[0][2] = 0.0;
@@ -534,6 +537,43 @@ void Input::create_lattice(Comm* comm) {
     T_INT ix_end = s.sub_domain_hi_x/s.domain_x * lattice_nx + 0.5;
     T_INT iy_end = s.sub_domain_hi_y/s.domain_y * lattice_ny + 0.5;
     T_INT iz_end = s.sub_domain_hi_z/s.domain_z * lattice_nz + 0.5;
+
+    T_INT n = 0;
+
+    for(T_INT iz=iz_start; iz<=iz_end; iz++) {
+      for(T_INT iy=iy_start; iy<=iy_end; iy++) {
+        for(T_INT ix=ix_start; ix<=ix_end; ix++) {
+          for(int k = 0; k<4; k++) {
+            T_FLOAT xtmp = lattice_constant * (1.0*ix+basis[k][0]);
+            T_FLOAT ytmp = lattice_constant * (1.0*iy+basis[k][1]);
+            T_FLOAT ztmp = lattice_constant * (1.0*iz+basis[k][2]);
+            if((xtmp >= s.sub_domain_lo_x) &&
+               (ytmp >= s.sub_domain_lo_y) &&
+               (ztmp >= s.sub_domain_lo_z) &&
+               (xtmp <  s.sub_domain_hi_x) &&
+               (ytmp <  s.sub_domain_hi_y) &&
+               (ztmp <  s.sub_domain_hi_z) ) {
+              n++;
+            }
+          }
+        }
+      }
+    }
+
+    system->N_local = n;
+    system->N = n;
+    system->grow(n);
+    s = *system;
+    h_x = Kokkos::create_mirror_view(s.x);
+    h_v = Kokkos::create_mirror_view(s.v);
+    h_q = Kokkos::create_mirror_view(s.q);
+    h_type = Kokkos::create_mirror_view(s.type);
+    h_id = Kokkos::create_mirror_view(s.id);
+
+    // Initialize system using the equivalent of the LAMMPS
+    // velocity geom option, i.e. uniform random kinetic energies.
+    // zero out momentum of the whole system afterwards, to eliminate
+    // drift (bad for energy statistics)
 
     for(T_INT iz=iz_start; iz<=iz_end; iz++) {
       for(T_INT iy=iy_start; iy<=iy_end; iy++) {
@@ -559,9 +599,6 @@ void Input::create_lattice(Comm* comm) {
         }
       }
     }
-
-    system->N_local = n;
-    system->N = n;
 
     // Make ids unique over all processes
     T_INT N_local_offset = n;
