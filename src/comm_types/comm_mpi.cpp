@@ -364,6 +364,10 @@ void CommMPI::update_halo() {
       MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
       s = *system;
       MPI_Wait(&request,&status);
+      const int count = proc_num_recv[phase];
+      if(unpack_buffer_update.extent(0)<count) {
+        unpack_buffer_update = t_buffer_update((T_X_FLOAT*)unpack_buffer.data(),count);
+      }
       Kokkos::parallel_for("CommMPI::halo_update_unpack",
                 Kokkos::RangePolicy<TagHaloUpdateUnpack, Kokkos::IndexType<T_INT> >(0,proc_num_recv[phase]),
                 *this);
