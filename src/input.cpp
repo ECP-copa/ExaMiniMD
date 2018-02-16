@@ -353,20 +353,17 @@ void Input::check_lammps_command(int line) {
     Kokkos::deep_copy(mass_one,mass);
   }
   if(strcmp(input_data.words[line][0],"pair_style")==0) {
-    if(strcmp(input_data.words[line][1],"lj/cut")==0) {
-      known = true;
-      force_type = FORCE_LJ;
-      force_cutoff = atof(input_data.words[line][2]);
-      force_line = line;
-    } else if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
+    if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
       known = true;
       force_type = FORCE_LJ_IDIAL;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } else {
-      if(system->do_print)
-        printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut' and 'lj/cut/idial' in ExaMiniMD\n");
-    }
+    } else if(strcmp(input_data.words[line][1],"lj/cut")==0) {
+      known = true;
+      force_type = FORCE_LJ;
+      force_cutoff = atof(input_data.words[line][2]);
+      force_line = line;
+    } 
     if(strcmp(input_data.words[line][1],"snap")==0) {
       known = true;
       force_type = FORCE_SNAP;
