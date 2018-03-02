@@ -246,7 +246,6 @@ public:
            ) continue;
 */
          const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
-         int neigh_count_temp;
            Kokkos::parallel_for(Kokkos::ThreadVectorRange(team, bin_count(bx_j,by_j,bz_j)), [&] (const T_INT bj) {
              T_INT j = permute_vector(j_offset + bj);
              const T_F_FLOAT x_j = x(j,0);
