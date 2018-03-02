@@ -65,6 +65,7 @@ System::System() {
 #else
   do_print = true;
 #endif
+  print_lammps = false;
 }
 
 void System::init() {

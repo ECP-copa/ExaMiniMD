@@ -152,9 +152,15 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     T_FLOAT PE = pote.compute(system,binning,neighbor,force)/system->N;
     T_FLOAT KE = kine.compute(system)/system->N;
     if(system->do_print) {
-      printf("\n");
-      printf("#Timestep Temperature PotE ETot Time Atomsteps/s\n");
-      printf("%i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0,0.0);
+      if (!system->print_lammps) {
+        printf("\n");
+        printf("#Timestep Temperature PotE ETot Time Atomsteps/s\n");
+        printf("%i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0,0.0);
+      } else {
+        printf("\n");
+        printf("Step Temp E_pair TotEng CPU\n");
+        printf("     %i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0);
+      }
     }
   }
 
@@ -247,9 +253,15 @@ void ExaMiniMD::run(int nsteps) {
       T_FLOAT PE = pote.compute(system,binning,neighbor,force)/system->N;
       T_FLOAT KE = kine.compute(system)/system->N;
       if(system->do_print) {
-        double time = timer.seconds();
-        printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
-        last_time = time;
+        if (!system->print_lammps) {
+          double time = timer.seconds();
+          printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
+          last_time = time;
+        } else {
+          double time = timer.seconds();
+          printf("     %i %lf %lf %lf %lf\n",step, T, PE, PE+KE, timer.seconds());
+          last_time = time;
+        }
       }
     }
 
@@ -268,11 +280,15 @@ void ExaMiniMD::run(int nsteps) {
   T_FLOAT KE = kine.compute(system)/system->N;
 
   if(system->do_print) {
-    printf("\n");
-    printf("#Procs Particles | Time T_Force T_Neigh T_Comm T_Other | Steps/s Atomsteps/s Atomsteps/(proc*s)\n");
-    printf("%i %i | %lf %lf %lf %lf %lf | %lf %e %e PERFORMANCE\n",comm->num_processes(),system->N,time,
-      force_time,neigh_time,comm_time,other_time,
-      1.0*nsteps/time,1.0*system->N*nsteps/time,1.0*system->N*nsteps/time/comm->num_processes());
+    if (!system->print_lammps) {
+      printf("\n");
+      printf("#Procs Particles | Time T_Force T_Neigh T_Comm T_Other | Steps/s Atomsteps/s Atomsteps/(proc*s)\n");
+      printf("%i %i | %lf %lf %lf %lf %lf | %lf %e %e PERFORMANCE\n",comm->num_processes(),system->N,time,
+        force_time,neigh_time,comm_time,other_time,
+        1.0*nsteps/time,1.0*system->N*nsteps/time,1.0*system->N*nsteps/time/comm->num_processes());
+    } else {
+      printf("Loop time of %f on %i procs for %i steps with %i atoms\n",time,comm->num_processes(),nsteps,system->N);
+    }
   }
 }
 

@@ -89,6 +89,8 @@ public:
 
   // Should this process print messages
   bool do_print;
+  // Should print LAMMPS style messages
+  bool print_lammps;
 
   System();
   ~System() {};
