@@ -35,7 +35,6 @@ pair_coeff * * Ta06A.snapcoeff Ta Ta06A.snapparam Ta
 # Setup output
 
 thermo		10
-thermo_modify norm yes
 
 # Set up NVE run
 
