@@ -149,7 +149,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 
 void Input::read_command_line_args(int argc, char* argv[]) {
 #define MODULES_OPTION_CHECK
-  for(int i = 0; i < argc; i++) {
+  for(int i = 1; i < argc; i++) {
     // Help command
     if( (strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0) ) {
       if(system->do_print) {
@@ -173,40 +173,46 @@ void Input::read_command_line_args(int argc, char* argv[]) {
     }
 
     // Read Lammps input deck
-    if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) ) {
+    else if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) {
       input_file = argv[++i];
       input_file_type = INPUT_LAMMPS;
       continue;
     }
 
     // Force Iteration Type Related
-    if( (strcmp(argv[i], "--force-iteration") == 0) ) {
+    else if( (strcmp(argv[i], "--force-iteration") == 0) ) {
      #include<modules_force.h>
     }
 
     // Communication Type
-    if( (strcmp(argv[i], "--comm-type") == 0) ) {
+    else if( (strcmp(argv[i], "--comm-type") == 0) ) {
      #include<modules_comm.h>
     }
 
     // Neihhbor Type
-    if( (strcmp(argv[i], "--neigh-type") == 0) ) {
+    else if( (strcmp(argv[i], "--neigh-type") == 0) ) {
      #include<modules_neighbor.h>
     }
 
     // Dump Binary
-    if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
+    else if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
       dumpbinary_rate = atoi(argv[i+1]);
       dumpbinary_path = argv[i+2];
       dumpbinaryflag = true;
     }
     
     // Correctness Check
-    if( (strcmp(argv[i], "--correctness") == 0) ) {
+    else if( (strcmp(argv[i], "--correctness") == 0) ) {
       correctness_rate = atoi(argv[i+1]);
       reference_path = argv[i+2];
       correctness_file = argv[i+3];
       correctnessflag = true;
+    }
+
+    else {
+      if(system->do_print)
+        printf("ERROR: Unknown command line argument: %s\n",argv[i]);
+      exit(1);
     }
     
   }
@@ -221,7 +227,8 @@ void Input::read_file(const char* filename) {
     return;
   }
   if(system->do_print)
-    printf("Unknown input file type");
+    printf("ERROR: Unknown input file type");
+  exit(1);
 }
 
 void Input::read_lammps_file(const char* filename) {
