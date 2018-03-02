@@ -121,6 +121,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 
   nsteps = 0;
   force_coeff_lines = Kokkos::View<int*,Kokkos::HostSpace>("Input::force_coeff_lines",0);
+  input_file_type = -1;
 
 
 #ifdef EXAMINIMD_ENABLE_MPI
@@ -173,7 +174,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
     }
 
     // Read Lammps input deck
-    else if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) {
+    else if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) ) {
       input_file = argv[++i];
       input_file_type = INPUT_LAMMPS;
       continue;
@@ -209,7 +210,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
       correctnessflag = true;
     }
 
-    else {
+    else if( (strstr(argv[i], "--kokkos-") == NULL) ) {
       if(system->do_print)
         printf("ERROR: Unknown command line argument: %s\n",argv[i]);
       exit(1);
@@ -227,7 +228,7 @@ void Input::read_file(const char* filename) {
     return;
   }
   if(system->do_print)
-    printf("ERROR: Unknown input file type");
+    printf("ERROR: Unknown input file type\n");
   exit(1);
 }
 
