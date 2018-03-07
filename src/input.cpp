@@ -170,29 +170,30 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
         printf("                              (2D, CSR, CSR_MAPCONSTR)\n");
       }
-      continue;
     }
 
     // Read Lammps input deck
     else if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) ) {
       input_file = argv[++i];
       input_file_type = INPUT_LAMMPS;
-      continue;
     }
 
     // Force Iteration Type Related
     else if( (strcmp(argv[i], "--force-iteration") == 0) ) {
      #include<modules_force.h>
+      ++i;
     }
 
     // Communication Type
     else if( (strcmp(argv[i], "--comm-type") == 0) ) {
      #include<modules_comm.h>
+      ++i;
     }
 
-    // Neihhbor Type
+    // Neighbor Type
     else if( (strcmp(argv[i], "--neigh-type") == 0) ) {
      #include<modules_neighbor.h>
+      ++i;
     }
 
     // Dump Binary
@@ -200,6 +201,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
       dumpbinary_rate = atoi(argv[i+1]);
       dumpbinary_path = argv[i+2];
       dumpbinaryflag = true;
+      i += 2;
     }
     
     // Correctness Check
@@ -208,6 +210,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
       reference_path = argv[i+2];
       correctness_file = argv[i+3];
       correctnessflag = true;
+      i += 3;
     }
 
     else if( (strstr(argv[i], "--kokkos-") == NULL) ) {
@@ -215,7 +218,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("ERROR: Unknown command line argument: %s\n",argv[i]);
       exit(1);
     }
-    
+
   }
 #undef MODULES_OPTION_CHECK
 }
