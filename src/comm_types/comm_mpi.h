@@ -86,7 +86,7 @@ class CommMPI: public Comm {
   Kokkos::View<int, Kokkos::MemoryTraits<Kokkos::Atomic> > pack_count;
   Kokkos::View<Particle*> pack_buffer;
   Kokkos::View<Particle*> unpack_buffer;
-  typedef Kokkos::View<T_X_FLOAT*[3], Kokkos::MemoryTraits<Kokkos::Unmanaged>> t_buffer_update;
+  typedef Kokkos::View<T_X_FLOAT*[3], Kokkos::LayoutRight, Kokkos::MemoryTraits<Kokkos::Unmanaged>> t_buffer_update;
   t_buffer_update pack_buffer_update;
   t_buffer_update unpack_buffer_update;
 
