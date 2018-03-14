@@ -149,44 +149,44 @@ void CommMPI::create_domain_decomposition() {
 
 void CommMPI::scan_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Scan(vals,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Scan(MPI_IN_PLACE,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
     // This generates MPI_ERR_BUFFER for count>1
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_max_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_max_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_min_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_min_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
