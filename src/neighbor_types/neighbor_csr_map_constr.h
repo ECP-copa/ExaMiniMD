@@ -159,8 +159,10 @@ public:
             count++;
           }
         },neigh_count_temp);
-        if(!skip_num_neigh_count)
-          num_neighs_atomic(i)+=neigh_count_temp;
+        Kokkos::single(Kokkos::PerThread(team), [&] () {
+          if(!skip_num_neigh_count)
+            num_neighs_atomic(i)+=neigh_count_temp;
+        });
       }
     });
   }
@@ -205,8 +207,10 @@ public:
             count++;
           }
         },neigh_count_temp);
-        if(!skip_num_neigh_count)
-          num_neighs_atomic(i)+=neigh_count_temp;
+        Kokkos::single(Kokkos::PerThread(team), [&] () {
+          if(!skip_num_neigh_count)
+            num_neighs_atomic(i)+=neigh_count_temp;
+        });
       }
     });
   }
