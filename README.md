@@ -29,6 +29,7 @@ git clone https://github.com/kokkos/kokkos ~/kokkos
 ### Force Fields:
  * Lennard-Jones Cell List
  * Lennard-Jones Neighbor List
+ * SNAP Full Neighbor List 
 
 ### Neighbor List:
  * 2D NeighborList creation
