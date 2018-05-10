@@ -50,6 +50,7 @@ System::System() {
   v = t_v();
   f = t_f();
   id = t_id();
+  global_index = t_index();
   type = t_type();
   q = t_q();
   mass = t_mass();
@@ -73,6 +74,7 @@ void System::init() {
   v = t_v("System::v",N_max);
   f = t_f("System::f",N_max);
   id = t_id("System::id",N_max);
+  global_index = t_index("System::global_index",N_max);
   type = t_type("System::type",N_max);
   q = t_q("System::q",N_max);
   mass = t_mass("System::mass",ntypes);
@@ -87,6 +89,7 @@ void System::destroy() {
   v = t_v();
   f = t_f();
   id = t_id();
+  global_index = t_index();
   type = t_type();
   q = t_q();
   mass = t_mass();
@@ -101,10 +104,22 @@ void System::grow(T_INT N_new) {
     Kokkos::resize(f,N_max);      // Forces
 
     Kokkos::resize(id,N_max);     // Id
+    Kokkos::resize(global_index,N_max);     // Id
 
     Kokkos::resize(type,N_max);   // Particle Type
 
     Kokkos::resize(q,N_max);      // Charge
+
+#ifdef EXAMINIMD_ENABLE_MPI
+  int num_ranks;
+  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+#else
+  int num_ranks = 1;
+#endif
+    int* rank_list = new int[num_ranks];
+    for(int i=0; i<num_ranks; i++)
+      rank_list[i] = i;
+    x_shmem = Kokkos::allocate_symmetric_remote_view<t_x_shmem>("X_shmem",num_ranks,rank_list,N_max); 
   }
 }
 

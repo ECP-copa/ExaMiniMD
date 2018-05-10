@@ -39,6 +39,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 #include<Kokkos_Core.hpp>
+#include<Kokkos_RemoteSpaces.hpp>
 
 // Module Types etc
 // Units to be used
@@ -59,6 +60,8 @@ enum {FORCE_ITER_CELL_FULL, FORCE_ITER_NEIGH_FULL, FORCE_ITER_NEIGH_HALF};
 enum {NEIGH_NONE, NEIGH_CSR, NEIGH_CSR_MAPCONSTR, NEIGH_2D};
 // Input File Type
 enum {INPUT_LAMMPS};
+
+enum INDEX_TYPE: int64_t { N_MAX_MASK = 1024*1024*1024 };
 
 // Macros to work around the fact that std::max/min is not available on GPUs
 #define MAX(a,b) (a>b?a:b)
@@ -84,11 +87,16 @@ enum {INPUT_LAMMPS};
 #define T_F_FLOAT T_FLOAT
 #endif
 
+#ifndef T_INDEX
+#define T_INDEX int64_t
+#endif
+
 // Define Kokkos View Types
 typedef Kokkos::View<T_X_FLOAT*[3],Kokkos::LayoutRight>       t_x;          // Positions
 typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight> t_x_const;    // Positions
 typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight,
     Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_x_const_rnd;    // Positions
+typedef Kokkos::View<T_X_FLOAT**[3],Kokkos::LayoutRight,Kokkos::SHMEMSpace> t_x_shmem; // PGAS Positions
 typedef Kokkos::View<T_V_FLOAT*[3]>       t_v;          // Velocities
 typedef Kokkos::View<T_F_FLOAT*[3]>       t_f;          // Force
 typedef Kokkos::View<T_F_FLOAT*[3],
@@ -106,6 +114,8 @@ typedef Kokkos::View<const int*,
     Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_type_const_rnd; // Type (int is enough as type)
 typedef Kokkos::View<T_INT*>              t_id;         // ID
 typedef Kokkos::View<const T_INT*>        t_id_const;   // ID
+typedef Kokkos::View<T_INDEX*>            t_index;         // ID
+typedef Kokkos::View<const T_INDEX*>      t_index_const;   // ID
 typedef Kokkos::View<T_FLOAT*>            t_q;          // Charge
 typedef Kokkos::View<const T_FLOAT*>      t_q_const;    // Charge
 

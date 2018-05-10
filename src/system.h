@@ -45,12 +45,14 @@ struct Particle {
   Particle() {
     x=y=z=vx=vy=vz=mass=q=0.0;
     id = type = 0;
+    global_index = 0;
   }
 
   T_X_FLOAT x,y,z;
   T_V_FLOAT vx,vy,vz,mass;
   T_FLOAT q;
   T_INT id;
+  T_INDEX global_index;
   int type;
 };
 
@@ -68,10 +70,13 @@ public:
   t_v v;         // Velocities
   t_f f;         // Forces
 
-  t_type type;   // Particle Type
-  t_id   id;     // Particle ID
-    
+  t_type  type;   // Particle Type
+  t_id    id;     // Particle ID
+  t_index global_index; // Index for PGAS indexing  
+  
   t_q q;         // Charge
+
+  t_x_shmem x_shmem; 
 
   // Per Type Property
   t_mass mass;
@@ -107,6 +112,7 @@ public:
     p.q = q(i);
     p.id = id(i);
     p.type = type(i);
+    p.global_index = global_index(i);
     return p;
   }
 
@@ -117,6 +123,7 @@ public:
     q(i) = p.q;
     id(i) = p.id;
     type(i) = p.type;
+    global_index(i) = p.global_index;
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -130,6 +137,7 @@ public:
     type(dest) = type(src);
     id(dest) = id(src);
     q(dest) = q(src);
+    global_index(dest) = global_index(src);
   }
 
   KOKKOS_INLINE_FUNCTION

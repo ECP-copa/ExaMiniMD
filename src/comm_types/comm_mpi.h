@@ -115,6 +115,8 @@ public:
 
   struct TagPermuteIndexList {};
 
+  struct TagCreateGlobalIndecies {};
+
   CommMPI(System* s, T_X_FLOAT comm_depth_);
   void init();
   void create_domain_decomposition();
@@ -494,6 +496,12 @@ public:
     s.f(i, 0) += pack_buffer_update(ii, 0);
     s.f(i, 1) += pack_buffer_update(ii, 1);
     s.f(i, 2) += pack_buffer_update(ii, 2);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (const TagCreateGlobalIndecies,
+                   const T_INT& i) const {
+    s.global_index(i) = N_MAX_MASK * proc_rank + i; 
   }
 
   const char* name();

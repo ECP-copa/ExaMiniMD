@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
 
    #ifdef EXAMINIMD_ENABLE_MPI
    MPI_Init(&argc,&argv);
+   shmem_init();
    #endif
 
    Kokkos::initialize(argc,argv);
@@ -67,7 +68,7 @@ int main(int argc, char* argv[]) {
    Kokkos::finalize();
 
    #ifdef EXAMINIMD_ENABLE_MPI
-   MPI_Finalize();
+   //MPI_Finalize();
    #endif
 }
 

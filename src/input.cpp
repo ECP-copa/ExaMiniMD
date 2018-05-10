@@ -508,7 +508,9 @@ void Input::create_lattice(Comm* comm) {
     }
     system->N_local = n;
     system->N = n;
-    system->grow(n);
+    int global_n_max = n;
+    comm->reduce_max_int(&global_n_max,1); 
+    system->grow(global_n_max);
     s = *system;
     h_x = Kokkos::create_mirror_view(s.x);
     h_v = Kokkos::create_mirror_view(s.v);
@@ -538,7 +540,9 @@ void Input::create_lattice(Comm* comm) {
         }
       }
     }
-    system->grow(n);
+    global_n_max = n;
+    comm->reduce_max_int(&global_n_max,1); 
+    system->grow(global_n_max);
     System s = *system;
     h_x = Kokkos::create_mirror_view(s.x);
     h_v = Kokkos::create_mirror_view(s.v);
@@ -640,7 +644,9 @@ void Input::create_lattice(Comm* comm) {
 
     system->N_local = n;
     system->N = n;
-    system->grow(n);
+    int global_n_max = n;
+    comm->reduce_max_int(&global_n_max,1); 
+    system->grow(global_n_max);
     s = *system;
     h_x = Kokkos::create_mirror_view(s.x);
     h_v = Kokkos::create_mirror_view(s.v);
@@ -672,7 +678,9 @@ void Input::create_lattice(Comm* comm) {
         }
       }
     }
-    system->grow(n);
+    global_n_max = n;
+    comm->reduce_max_int(&global_n_max,1); 
+    system->grow(global_n_max);
     System s = *system;
     h_x = Kokkos::create_mirror_view(s.x);
     h_v = Kokkos::create_mirror_view(s.v);

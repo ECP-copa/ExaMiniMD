@@ -105,10 +105,21 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
 
   N_local = system->N_local;
   x = system->x;
+  x_shmem = system->x_shmem;
+  x_shmem_local = t_x(x_shmem.data(),x_shmem.extent(1));
   f = system->f;
   f_a = system->f;
   type = system->type;
   id = system->id;
+  global_index = system->global_index;
+
+  domain_x = system->domain_x;
+  domain_y = system->domain_y;
+  domain_z = system->domain_z;
+
+  Kokkos::parallel_for("ForceLJNeigh::compute_fill_xshmem", Kokkos::RangePolicy<TagCopyLocalXShmem>(0,system->N_local), *this);
+  //Kokkos::SHMEMSpace::fence();
+  shmem_barrier_all();
   if (use_stackparams) {
     if(half_neigh)
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh_stackparams(0, system->N_local), *this);
@@ -121,7 +132,10 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
   }
   Kokkos::fence();
+  shmem_barrier_all();
+  //Kokkos::SHMEMSpace::fence();
 
+  x_shmem = t_x_shmem();
   step++;
 }
 
@@ -130,7 +144,7 @@ T_V_FLOAT ForceLJNeigh<NeighborClass>::compute_energy(System* system, Binning* b
   // Set internal data handles
   NeighborClass* neighbor = (NeighborClass*) neighbor_;
   neigh_list = neighbor->get_neigh_list();
-
+  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
   N_local = system->N_local;
   x = system->x;
   f = system->f;
@@ -177,10 +191,45 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T
 
   for(int jj = 0; jj < num_neighs; jj++) {
     T_INT j = neighs_i(jj);
-    const T_F_FLOAT dx = x_i - x(j,0);
-    const T_F_FLOAT dy = y_i - x(j,1);
-    const T_F_FLOAT dz = z_i - x(j,2);
+    //printf("Neigh: %i %i %li %li %i\n",i,j,global_index(i),global_index(j),j>N_local?1:0);
+    //const T_F_FLOAT dx = x_i - x(j,0);
+    //const T_F_FLOAT dy = y_i - x(j,1);
+    //const T_F_FLOAT dz = z_i - x(j,2);
 
+    const T_INDEX jg = global_index(j);
+    #ifdef SHMEMTESTS_USE_HALO
+    const T_X_FLOAT xj_shmem = x(j,0);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x(j,1);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x(j,2);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_HALO_LOCAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x(j,0):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x(j,1):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x(j,2):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_LOCAL_GLOBAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+0]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+1]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+2]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const T_X_FLOAT xj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+
+    T_F_FLOAT dx = abs(x_i - xj_shmem)>domain_x/2?
+                            (x_i-xj_shmem<0?x_i-xj_shmem+domain_x:x_i-xj_shmem-domain_x)
+                           :x_i-xj_shmem;
+    T_F_FLOAT dy = abs(y_i - yj_shmem)>domain_y/2?
+                            (y_i-yj_shmem<0?y_i-yj_shmem+domain_y:y_i-yj_shmem-domain_y)
+                           :y_i-yj_shmem;
+    T_F_FLOAT dz = abs(z_i - zj_shmem)>domain_z/2?
+                            (z_i-zj_shmem<0?z_i-zj_shmem+domain_z:z_i-zj_shmem-domain_z)
+                           :z_i-zj_shmem;
+    
+//    if((abs(dx_shmem-dx)>1e-10) || (abs(dy_shmem-dy)>1e-10) || (abs(dz_shmem-dz)>1e-10))
+//      printf("Neigh: %i %i %li %li %i : %lf %lf %lf %lf %lf\n",i,j,global_index(i),global_index(j),j>N_local?1:0,x(j,0),xj_shmem,domain_x,dx,dx_shmem);
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
 
@@ -341,3 +390,12 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE<STACKPARAMS>, const
   }
 
 }
+
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceLJNeigh<NeighborClass>::operator() (TagCopyLocalXShmem, const T_INT& i) const {
+  x_shmem_local(i,0) = x(i,0);
+  x_shmem_local(i,1) = x(i,1);
+  x_shmem_local(i,2) = x(i,2);
+}
+

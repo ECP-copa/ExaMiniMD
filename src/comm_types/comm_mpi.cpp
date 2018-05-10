@@ -245,7 +245,9 @@ void CommMPI::exchange() {
         MPI_Irecv(unpack_buffer.data(),proc_num_recv[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_recv[phase],100002,MPI_COMM_WORLD,&request);
       if(proc_num_send[phase]>0)
         MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
-      system->grow(N_local + N_ghost + count);
+      int global_n_max = N_local + N_ghost + count;
+      reduce_max_int(&global_n_max,1);
+      system->grow(global_n_max);
       s = *system;
       if(proc_num_recv[phase]>0)
         MPI_Wait(&request,&status);
@@ -292,6 +294,10 @@ void CommMPI::exchange_halo() {
 
   Kokkos::Profiling::pushRegion("Comm::exchange_halo");
 
+  Kokkos::parallel_for("CommMPI::halo_exchange_create_global_indicies", 
+           Kokkos::RangePolicy<TagCreateGlobalIndecies, Kokkos::IndexType<T_INT> >(0,N_local),
+           *this);
+
   N_local = system->N_local;
   N_ghost = 0;
 
@@ -332,7 +338,9 @@ void CommMPI::exchange_halo() {
       }
       MPI_Irecv(unpack_buffer.data(),proc_num_recv[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_recv[phase],100002,MPI_COMM_WORLD,&request);
       MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(Particle)/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
-      system->grow(N_local + N_ghost + count);
+      int global_n_max = N_local + N_ghost + count;
+      reduce_max_int(&global_n_max,1);
+      system->grow(global_n_max);
       s = *system;
       MPI_Wait(&request,&status);
       Kokkos::parallel_for("CommMPI::halo_exchange_unpack",
@@ -346,8 +354,10 @@ void CommMPI::exchange_halo() {
                 *this);
       Kokkos::deep_copy(count,pack_count);
       bool redo = false;
-      if(N_local+N_ghost+count>s.x.extent(0)) {
-        system->grow(N_local + N_ghost + count);
+      int global_n_max = N_local + N_ghost + count;
+      reduce_max_int(&global_n_max,1);
+      if(global_n_max>s.x.extent(0)) {
+        system->grow(global_n_max);
         s = *system;
         redo = true;
       }
