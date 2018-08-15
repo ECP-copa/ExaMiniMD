@@ -1,3 +1,41 @@
+//************************************************************************
+//  ExaMiniMD v. 1.0
+//  Copyright (2018) National Technology & Engineering Solutions of Sandia,
+//  LLC (NTESS).
+//
+//  Under the terms of Contract DE-NA-0003525 with NTESS, the U.S. Government
+//  retains certain rights in this software.
+//
+//  ExaMiniMD is licensed under 3-clause BSD terms of use: Redistribution and
+//  use in source and binary forms, with or without modification, are
+//  permitted provided that the following conditions are met:
+//
+//    1. Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//
+//    2. Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//
+//    3. Neither the name of the Corporation nor the names of the contributors
+//       may be used to endorse or promote products derived from this software
+//       without specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY EXPRESS OR IMPLIED
+//  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+//  IN NO EVENT SHALL NTESS OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+//  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+//  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+//  STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+//  IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+//  POSSIBILITY OF SUCH DAMAGE.
+//
+//  Questions? Contact Christian R. Trott (crtrott@sandia.gov)
+//************************************************************************
+
 #ifdef EXAMINIMD_ENABLE_MPI
 #include<comm_mpi.h>
 
@@ -111,44 +149,44 @@ void CommMPI::create_domain_decomposition() {
 
 void CommMPI::scan_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Scan(vals,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Scan(MPI_IN_PLACE,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
     // This generates MPI_ERR_BUFFER for count>1
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_max_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_max_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_min_int(T_INT* vals, T_INT count) {
   if(std::is_same<T_INT,int>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
 void CommMPI::reduce_min_float(T_FLOAT* vals, T_INT count) {
   if(std::is_same<T_FLOAT,double>::value) {
-    MPI_Allreduce(vals,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE,vals,count,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   }
 }
 
@@ -364,6 +402,10 @@ void CommMPI::update_halo() {
       MPI_Send (pack_buffer.data(),proc_num_send[phase]*sizeof(T_X_FLOAT)*3/sizeof(int),MPI_INT, proc_neighbors_send[phase],100002,MPI_COMM_WORLD);
       s = *system;
       MPI_Wait(&request,&status);
+      const int count = proc_num_recv[phase];
+      if(unpack_buffer_update.extent(0)<count) {
+        unpack_buffer_update = t_buffer_update((T_X_FLOAT*)unpack_buffer.data(),count);
+      }
       Kokkos::parallel_for("CommMPI::halo_update_unpack",
                 Kokkos::RangePolicy<TagHaloUpdateUnpack, Kokkos::IndexType<T_INT> >(0,proc_num_recv[phase]),
                 *this);

@@ -1,3 +1,41 @@
+//************************************************************************
+//  ExaMiniMD v. 1.0
+//  Copyright (2018) National Technology & Engineering Solutions of Sandia,
+//  LLC (NTESS).
+//
+//  Under the terms of Contract DE-NA-0003525 with NTESS, the U.S. Government
+//  retains certain rights in this software.
+//
+//  ExaMiniMD is licensed under 3-clause BSD terms of use: Redistribution and
+//  use in source and binary forms, with or without modification, are
+//  permitted provided that the following conditions are met:
+//
+//    1. Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//
+//    2. Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//
+//    3. Neither the name of the Corporation nor the names of the contributors
+//       may be used to endorse or promote products derived from this software
+//       without specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY EXPRESS OR IMPLIED
+//  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+//  IN NO EVENT SHALL NTESS OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+//  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+//  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+//  STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+//  IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+//  POSSIBILITY OF SUCH DAMAGE.
+//
+//  Questions? Contact Christian R. Trott (crtrott@sandia.gov)
+//************************************************************************
+
 #include <examinimd.h>
 #include <property_temperature.h>
 #include <property_kine.h>
@@ -114,9 +152,15 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     T_FLOAT PE = pote.compute(system,binning,neighbor,force)/system->N;
     T_FLOAT KE = kine.compute(system)/system->N;
     if(system->do_print) {
-      printf("\n");
-      printf("#Timestep Temperature PotE ETot Time Atomsteps/s\n");
-      printf("%i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0,0.0);
+      if (!system->print_lammps) {
+        printf("\n");
+        printf("#Timestep Temperature PotE ETot Time Atomsteps/s\n");
+        printf("%i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0,0.0);
+      } else {
+        printf("\n");
+        printf("Step Temp E_pair TotEng CPU\n");
+        printf("     %i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0);
+      }
     }
   }
 
@@ -209,9 +253,15 @@ void ExaMiniMD::run(int nsteps) {
       T_FLOAT PE = pote.compute(system,binning,neighbor,force)/system->N;
       T_FLOAT KE = kine.compute(system)/system->N;
       if(system->do_print) {
-        double time = timer.seconds();
-        printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
-        last_time = time;
+        if (!system->print_lammps) {
+          double time = timer.seconds();
+          printf("%i %lf %lf %lf %lf %e\n",step, T, PE, PE+KE, timer.seconds(),1.0*system->N*input->thermo_rate/(time-last_time));
+          last_time = time;
+        } else {
+          double time = timer.seconds();
+          printf("     %i %lf %lf %lf %lf\n",step, T, PE, PE+KE, timer.seconds());
+          last_time = time;
+        }
       }
     }
 
@@ -230,11 +280,15 @@ void ExaMiniMD::run(int nsteps) {
   T_FLOAT KE = kine.compute(system)/system->N;
 
   if(system->do_print) {
-    printf("\n");
-    printf("#Procs Particles | Time T_Force T_Neigh T_Comm T_Other | Steps/s Atomsteps/s Atomsteps/(proc*s)\n");
-    printf("%i %i | %lf %lf %lf %lf %lf | %lf %e %e PERFORMANCE\n",comm->num_processes(),system->N,time,
-      force_time,neigh_time,comm_time,other_time,
-      1.0*nsteps/time,1.0*system->N*nsteps/time,1.0*system->N*nsteps/time/comm->num_processes());
+    if (!system->print_lammps) {
+      printf("\n");
+      printf("#Procs Particles | Time T_Force T_Neigh T_Comm T_Other | Steps/s Atomsteps/s Atomsteps/(proc*s)\n");
+      printf("%i %i | %lf %lf %lf %lf %lf | %lf %e %e PERFORMANCE\n",comm->num_processes(),system->N,time,
+        force_time,neigh_time,comm_time,other_time,
+        1.0*nsteps/time,1.0*system->N*nsteps/time,1.0*system->N*nsteps/time/comm->num_processes());
+    } else {
+      printf("Loop time of %f on %i procs for %i steps with %i atoms\n",time,comm->num_processes(),nsteps,system->N);
+    }
   }
 }
 
