@@ -1,3 +1,41 @@
+//************************************************************************
+//  ExaMiniMD v. 1.0
+//  Copyright (2018) National Technology & Engineering Solutions of Sandia,
+//  LLC (NTESS).
+//
+//  Under the terms of Contract DE-NA-0003525 with NTESS, the U.S. Government
+//  retains certain rights in this software.
+//
+//  ExaMiniMD is licensed under 3-clause BSD terms of use: Redistribution and
+//  use in source and binary forms, with or without modification, are
+//  permitted provided that the following conditions are met:
+//
+//    1. Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimer.
+//
+//    2. Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimer in the documentation
+//       and/or other materials provided with the distribution.
+//
+//    3. Neither the name of the Corporation nor the names of the contributors
+//       may be used to endorse or promote products derived from this software
+//       without specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY EXPRESS OR IMPLIED
+//  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+//  IN NO EVENT SHALL NTESS OR THE CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+//  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+//  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+//  STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+//  IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+//  POSSIBILITY OF SUCH DAMAGE.
+//
+//  Questions? Contact Christian R. Trott (crtrott@sandia.gov)
+//************************************************************************
+
 #include <input.h>
 #include <iostream>
 #include <fstream>
@@ -83,6 +121,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 
   nsteps = 0;
   force_coeff_lines = Kokkos::View<int*,Kokkos::HostSpace>("Input::force_coeff_lines",0);
+  input_file_type = -1;
 
 
 #ifdef EXAMINIMD_ENABLE_MPI
@@ -111,7 +150,7 @@ Input::Input(System* p):system(p),input_data(ItemizedFile()),integrator_type(INT
 
 void Input::read_command_line_args(int argc, char* argv[]) {
 #define MODULES_OPTION_CHECK
-  for(int i = 0; i < argc; i++) {
+  for(int i = 1; i < argc; i++) {
     // Help command
     if( (strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0) ) {
       if(system->do_print) {
@@ -131,46 +170,55 @@ void Input::read_command_line_args(int argc, char* argv[]) {
         printf("  --neigh-type [TYPE]:        Specify Neighbor Routines implementation \n");
         printf("                              (2D, CSR, CSR_MAPCONSTR)\n");
       }
-      continue;
     }
 
     // Read Lammps input deck
-    if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) ) {
+    else if( (strcmp(argv[i], "-il") == 0) || (strcmp(argv[i], "--input-lammps") == 0) ) {
       input_file = argv[++i];
       input_file_type = INPUT_LAMMPS;
-      continue;
     }
 
     // Force Iteration Type Related
-    if( (strcmp(argv[i], "--force-iteration") == 0) ) {
+    else if( (strcmp(argv[i], "--force-iteration") == 0) ) {
      #include<modules_force.h>
+      ++i;
     }
 
     // Communication Type
-    if( (strcmp(argv[i], "--comm-type") == 0) ) {
+    else if( (strcmp(argv[i], "--comm-type") == 0) ) {
      #include<modules_comm.h>
+      ++i;
     }
 
-    // Neihhbor Type
-    if( (strcmp(argv[i], "--neigh-type") == 0) ) {
+    // Neighbor Type
+    else if( (strcmp(argv[i], "--neigh-type") == 0) ) {
      #include<modules_neighbor.h>
+      ++i;
     }
 
     // Dump Binary
-    if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
+    else if( (strcmp(argv[i], "--dumpbinary") == 0) ) {
       dumpbinary_rate = atoi(argv[i+1]);
       dumpbinary_path = argv[i+2];
       dumpbinaryflag = true;
+      i += 2;
     }
     
     // Correctness Check
-    if( (strcmp(argv[i], "--correctness") == 0) ) {
+    else if( (strcmp(argv[i], "--correctness") == 0) ) {
       correctness_rate = atoi(argv[i+1]);
       reference_path = argv[i+2];
       correctness_file = argv[i+3];
       correctnessflag = true;
+      i += 3;
     }
-    
+
+    else if( (strstr(argv[i], "--kokkos-") == NULL) ) {
+      if(system->do_print)
+        printf("ERROR: Unknown command line argument: %s\n",argv[i]);
+      exit(1);
+    }
+
   }
 #undef MODULES_OPTION_CHECK
 }
@@ -183,7 +231,8 @@ void Input::read_file(const char* filename) {
     return;
   }
   if(system->do_print)
-    printf("Unknown input file type");
+    printf("ERROR: Unknown input file type\n");
+  exit(1);
 }
 
 void Input::read_lammps_file(const char* filename) {
@@ -315,20 +364,17 @@ void Input::check_lammps_command(int line) {
     Kokkos::deep_copy(mass_one,mass);
   }
   if(strcmp(input_data.words[line][0],"pair_style")==0) {
-    if(strcmp(input_data.words[line][1],"lj/cut")==0) {
-      known = true;
-      force_type = FORCE_LJ;
-      force_cutoff = atof(input_data.words[line][2]);
-      force_line = line;
-    } else if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
+    if(strcmp(input_data.words[line][1],"lj/cut/idial")==0) {
       known = true;
       force_type = FORCE_LJ_IDIAL;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } else {
-      if(system->do_print)
-        printf("LAMMPS-Command: 'pair_style' command only supports 'lj/cut' and 'lj/cut/idial' in ExaMiniMD\n");
-    }
+    } else if(strcmp(input_data.words[line][1],"lj/cut")==0) {
+      known = true;
+      force_type = FORCE_LJ;
+      force_cutoff = atof(input_data.words[line][2]);
+      force_line = line;
+    } 
     if(strcmp(input_data.words[line][1],"snap")==0) {
       known = true;
       force_type = FORCE_SNAP;

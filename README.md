@@ -29,6 +29,7 @@ git clone https://github.com/kokkos/kokkos ~/kokkos
 ### Force Fields:
  * Lennard-Jones Cell List
  * Lennard-Jones Neighbor List
+ * SNAP Full Neighbor List 
 
 ### Neighbor List:
  * 2D NeighborList creation
@@ -52,8 +53,9 @@ git clone https://github.com/kokkos/kokkos ~/kokkos
 ExaMiniMD utilizes the standard GNU Make build system of Kokkos. For
 detailed information about the Kokkos build process please refer to 
 documentation of Kokkos at github.com/kokkos/kokkos
-ExaMiniMD requires Kokkos version 2.03 (April 2017) as a minimum.
-Here are some quickstart information which assume that Kokkos was 
+ExaMiniMD requires Kokkos version 2.6.00 (March 2018) as a minimum.
+ExaMiniMD requires a C++11 compiler. Here is some quickstart
+information which assume that Kokkos was 
 cloned into ${HOME}/kokkos (see above) and you are in the "src"
 directory:
 
@@ -82,11 +84,16 @@ IBM Power8 CPU + NVIDIA P100 / CUDA / MPI (OpenMPI)
 
 Currently ExaMiniMD can only get input from LAMMPS input files with a 
 restricted set of LAMMPS commands. An example input file is provided in the
-input directory. Assuming you build in the src directory run:
+input directory. Assuming you build in the src directory:
 
 To run 2 MPI tasks, with 12 threads per task:
 ```
 mpirun -np 2 -bind-to socket ./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-threads=12
+```
+
+To run 2 MPI tasks, with 1 GPU per task:
+```
+mpirun -np 2 -bind-to socket ./ExaMiniMD -il ../input/in.lj --comm-type MPI --kokkos-ndevices=2
 ```
 
 To run in serial, writing binary output every timestep to ReferenceDir
