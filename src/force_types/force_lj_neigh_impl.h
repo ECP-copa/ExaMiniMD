@@ -119,7 +119,7 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
 
   Kokkos::parallel_for("ForceLJNeigh::compute_fill_xshmem", Kokkos::RangePolicy<TagCopyLocalXShmem>(0,system->N_local), *this);
   //Kokkos::SHMEMSpace::fence();
-  shmem_barrier_all();
+  Kokkos::DefaultRemoteMemorySpace().fence();;
   if (use_stackparams) {
     if(half_neigh)
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_half_neigh_stackparams(0, system->N_local), *this);
@@ -132,7 +132,7 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
       Kokkos::parallel_for("ForceLJNeigh::compute", t_policy_full_neigh(0, system->N_local), *this);
   }
   Kokkos::fence();
-  shmem_barrier_all();
+  Kokkos::DefaultRemoteMemorySpace().fence();;
   //Kokkos::SHMEMSpace::fence();
 
   x_shmem = t_x_shmem();

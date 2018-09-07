@@ -17,7 +17,7 @@ default: build
 
 
 EXE = ExaMiniMD
-CXXFLAGS = -O3 -g -DKOKKOS_ENABLE_SHMEMSPACE
+CXXFLAGS = -O3 -g
 LINKFLAGS = -O3 -g
 
 ifeq ($(MPI), 1)
@@ -34,9 +34,9 @@ endif
 LINK = ${CXX}
 
 #CXXFLAGS += -DSHMEMTESTS_USE_HALO
-#CXXFLAGS += -DSHMEMTESTS_USE_HALO_LOCAL
+CXXFLAGS += -DSHMEMTESTS_USE_HALO_LOCAL
 #CXXFLAGS += -DSHMEMTESTS_USE_LOCAL_GLOBAL
-CXXFLAGS += -DSHMEMTESTS_USE_GLOBAL
+#CXXFLAGS += -DSHMEMTESTS_USE_GLOBAL
 
 KOKKOS_OPTIONS=aggressive_vectorization
 
@@ -72,11 +72,7 @@ OBJ = $(SRC_NOTDIR:.cpp=.o)
 LIB =
 
 include $(KOKKOS_PATH)/Makefile.kokkos
-
-EXTRA_INC += -I${KOKKOS_REMOTE_SPACES_PATH}/src -I${KOKKOS_REMOTE_SPACES_PATH}/src/SHMEM
-vpath %.cpp ${KOKKOS_REMOTE_SPACES_PATH}/src/SHMEM
-LIB += -L/home/projects/x86-64-haswell/openmpi/2.1.1/gcc/4.9.3/lib -loshmem
-OBJ += Kokkos_SHMEMSpace.o
+include $(KOKKOS_REMOTE_SPACES_PATH)/Makefile.kokkos-remote-spaces
 
 build: $(EXE)
 

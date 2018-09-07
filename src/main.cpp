@@ -49,6 +49,8 @@ int main(int argc, char* argv[]) {
 
    #ifdef EXAMINIMD_ENABLE_MPI
    MPI_Init(&argc,&argv);
+   #endif
+   #ifdef KOKKOS_ENABLE_SHMEMSPACE
    shmem_init();
    #endif
 
