@@ -50,8 +50,7 @@ int main(int argc, char* argv[]) {
 
    #ifdef EXAMINIMD_ENABLE_MPI
    MPI_Init(&argc,&argv);
-   #endif
-   #ifdef KOKKOS_ENABLE_NVSHMEM
+   #ifdef KOKKOS_ENABLE_NVSHMEMSPACE
    shmemx_init_attr_t attr;
    auto mpi_comm = MPI_COMM_WORLD;
    attr.mpi_comm = &mpi_comm;

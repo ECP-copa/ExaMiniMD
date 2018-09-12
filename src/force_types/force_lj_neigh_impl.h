@@ -116,9 +116,11 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   domain_x = system->domain_x;
   domain_y = system->domain_y;
   domain_z = system->domain_z;
-
+  Kokkos::fence();
+  Kokkos::DefaultRemoteMemorySpace().fence();;
   Kokkos::parallel_for("ForceLJNeigh::compute_fill_xshmem", Kokkos::RangePolicy<TagCopyLocalXShmem>(0,system->N_local), *this);
   //Kokkos::SHMEMSpace::fence();
+  Kokkos::fence();
   Kokkos::DefaultRemoteMemorySpace().fence();;
   if (use_stackparams) {
     if(half_neigh)
@@ -217,7 +219,7 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T
     const T_X_FLOAT yj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
     const T_X_FLOAT zj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
     #endif
-
+    //printf("DATA: %i %i %i %lf %lf %lf %i %li %i\n",id(i),jj,(int)jg,xj_shmem,yj_shmem,zj_shmem,(int)jg/N_MAX_MASK,N_MAX_MASK,int(jg%N_MAX_MASK));
     T_F_FLOAT dx = abs(x_i - xj_shmem)>domain_x/2?
                             (x_i-xj_shmem<0?x_i-xj_shmem+domain_x:x_i-xj_shmem-domain_x)
                            :x_i-xj_shmem;
@@ -394,6 +396,7 @@ void ForceLJNeigh<NeighborClass>::operator() (TagHalfNeighPE<STACKPARAMS>, const
 template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
 void ForceLJNeigh<NeighborClass>::operator() (TagCopyLocalXShmem, const T_INT& i) const {
+  //printf("CopyLocal: %i %lf %lf %lf\n",i,x(i,0),x(i,1),x(i,2));
   x_shmem_local(i,0) = x(i,0);
   x_shmem_local(i,1) = x(i,1);
   x_shmem_local(i,2) = x(i,2);

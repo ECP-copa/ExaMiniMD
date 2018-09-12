@@ -109,7 +109,7 @@ void System::grow(T_INT N_new) {
     Kokkos::resize(type,N_max);   // Particle Type
 
     Kokkos::resize(q,N_max);      // Charge
-
+{
 #ifdef EXAMINIMD_ENABLE_MPI
   int num_ranks;
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
@@ -119,7 +119,10 @@ void System::grow(T_INT N_new) {
     int* rank_list = new int[num_ranks];
     for(int i=0; i<num_ranks; i++)
       rank_list[i] = i;
+    Kokkos::DefaultRemoteMemorySpace space;
     x_shmem = Kokkos::allocate_symmetric_remote_view<t_x_shmem>("X_shmem",num_ranks,rank_list,N_max); 
+}
+
   }
 }
 

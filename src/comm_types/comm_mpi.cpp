@@ -390,7 +390,6 @@ void CommMPI::exchange_halo() {
 };
 
 void CommMPI::update_halo() {
-
   Kokkos::Profiling::pushRegion("Comm::update_halo");
 
   N_ghost = 0;
