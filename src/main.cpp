@@ -44,14 +44,22 @@
 #ifdef EXAMINIMD_ENABLE_MPI
 #include "mpi.h"
 #endif
+#include <Kokkos_RemoteSpaces.hpp>
 
 int main(int argc, char* argv[]) {
 
    #ifdef EXAMINIMD_ENABLE_MPI
    MPI_Init(&argc,&argv);
    #endif
+   #ifdef KOKKOS_ENABLE_NVSHMEM
+   shmemx_init_attr_t attr;
+   auto mpi_comm = MPI_COMM_WORLD;
+   attr.mpi_comm = &mpi_comm;
+   shmemx_init_attr (SHMEMX_INIT_WITH_MPI_COMM, &attr);
+   #endif
    #ifdef KOKKOS_ENABLE_SHMEMSPACE
    shmem_init();
+   #endif
    #endif
 
    Kokkos::initialize(argc,argv);
