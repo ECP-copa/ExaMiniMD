@@ -51,6 +51,7 @@ ForceLJNeigh<NeighborClass>::ForceLJNeigh(char** args, System* system, bool half
   N_local = 0;
   nhalo = 0;
   step = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 }
 
 template<class NeighborClass>
@@ -106,7 +107,12 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   N_local = system->N_local;
   x = system->x;
   x_shmem = system->x_shmem;
+
+#ifdef KOKKOS_ENABLE_QUOSPACE
+  x_shmem_local = t_x_shmem_local(&x_shmem.access(proc_rank,0,0),x_shmem.extent(1));
+#else
   x_shmem_local = t_x_shmem_local(x_shmem.data(),x_shmem.extent(1));
+#endif
   f = system->f;
   f_a = system->f;
   type = system->type;

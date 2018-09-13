@@ -159,7 +159,11 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
   x = system->x;
   f = system->f;
   x_shmem = system->x_shmem;
+#ifdef KOKKOS_ENABLE_QUOSPACE
+  x_shmem_local = t_x_shmem_local(&x_shmem.access(proc_rank,0,0),x_shmem.extent(1));
+#else
   x_shmem_local = t_x_shmem_local(x_shmem.data(),x_shmem.extent(1));
+#endif
   domain_x = system->domain_x;
   domain_y = system->domain_y;
   domain_z = system->domain_z;
