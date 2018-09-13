@@ -390,7 +390,7 @@ void CommMPI::exchange_halo() {
 };
 
 void CommMPI::update_halo() {
-#ifndef -DSHMEMTESTS_USE_HALO
+#ifndef SHMEMTESTS_USE_HALO
   return;
 #else
   Kokkos::Profiling::pushRegion("Comm::update_halo");

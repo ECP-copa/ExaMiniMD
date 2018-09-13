@@ -106,7 +106,7 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   N_local = system->N_local;
   x = system->x;
   x_shmem = system->x_shmem;
-  x_shmem_local = t_x(x_shmem.data(),x_shmem.extent(1));
+  x_shmem_local = t_x_shmem_local(x_shmem.data(),x_shmem.extent(1));
   f = system->f;
   f_a = system->f;
   type = system->type;
@@ -137,7 +137,7 @@ void ForceLJNeigh<NeighborClass>::compute(System* system, Binning* binning, Neig
   Kokkos::DefaultRemoteMemorySpace().fence();;
   //Kokkos::SHMEMSpace::fence();
 
-  x_shmem = t_x_shmem();
+  //x_shmem = t_x_shmem();
   step++;
 }
 
@@ -199,6 +199,7 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T
     //const T_F_FLOAT dz = z_i - x(j,2);
 
     const T_INDEX jg = global_index(j);
+    #ifdef SHMEMTESTS_USE_SCALAR
     #ifdef SHMEMTESTS_USE_HALO
     const T_X_FLOAT xj_shmem = x(j,0);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
     const T_X_FLOAT yj_shmem = x(j,1);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
@@ -218,6 +219,14 @@ void ForceLJNeigh<NeighborClass>::operator() (TagFullNeigh<STACKPARAMS>, const T
     const T_X_FLOAT xj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
     const T_X_FLOAT yj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
     const T_X_FLOAT zj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #else
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const double3 posj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK);
+    const T_X_FLOAT xj_shmem = posj_shmem.x;
+    const T_X_FLOAT yj_shmem = posj_shmem.y;
+    const T_X_FLOAT zj_shmem = posj_shmem.z;
+    #endif
     #endif
     //printf("DATA: %i %i %i %lf %lf %lf %i %li %i\n",id(i),jj,(int)jg,xj_shmem,yj_shmem,zj_shmem,(int)jg/N_MAX_MASK,N_MAX_MASK,int(jg%N_MAX_MASK));
     T_F_FLOAT dx = abs(x_i - xj_shmem)>domain_x/2?
@@ -397,8 +406,13 @@ template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
 void ForceLJNeigh<NeighborClass>::operator() (TagCopyLocalXShmem, const T_INT& i) const {
   //printf("CopyLocal: %i %lf %lf %lf\n",i,x(i,0),x(i,1),x(i,2));
+  #ifdef SHMEMTESTS_USE_SCALAR
   x_shmem_local(i,0) = x(i,0);
   x_shmem_local(i,1) = x(i,1);
   x_shmem_local(i,2) = x(i,2);
+  #else
+  double3 pos = {x(i,0),x(i,1),x(i,2)};
+  x_shmem_local(i) = pos;
+  #endif
 }
 

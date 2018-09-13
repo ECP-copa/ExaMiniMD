@@ -68,7 +68,7 @@ private:
   int N_local,ntypes;
   t_x_const_rnd x;
   t_x_shmem x_shmem;
-  t_x x_shmem_local;
+  t_x_shmem_local x_shmem_local;
   t_f f;
   t_f_atomic f_a;
   t_id id;

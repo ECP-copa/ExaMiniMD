@@ -8,7 +8,7 @@ newton 		on
 # generate the box and atom positions using a BCC lattice
 
 lattice         sc 3.1803
-region		box block 0 4 0 8 0 8
+region		box block 0 8 0 8 0 8
 create_box	1 box
 create_atoms	1 box
 
@@ -27,7 +27,7 @@ thermo		10
 # Set up NVE run
 
 neighbor 1.0 bin
-neigh_modify once no every 1 delay 0 check yes
+neigh_modify once no every 20 delay 0 check yes
 
 # Run MD
 

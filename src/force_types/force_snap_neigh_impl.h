@@ -158,6 +158,12 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
     Kokkos::abort("ForceSNAP requires 'newton on'");
   x = system->x;
   f = system->f;
+  x_shmem = system->x_shmem;
+  x_shmem_local = t_x_shmem_local(x_shmem.data(),x_shmem.extent(1));
+  domain_x = system->domain_x;
+  domain_y = system->domain_y;
+  domain_z = system->domain_z;
+  global_index = system->global_index;
   type = system->type;
   int nlocal = system->N_local;
 
@@ -172,6 +178,11 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
     const int num_neighs = neighs_i.get_num_neighs();
     if(max_neighs<num_neighs) max_neighs = num_neighs;
   }*/
+
+  Kokkos::DefaultRemoteMemorySpace().fence();;
+  Kokkos::parallel_for("ForceSNAPNeigh::compute_fill_xshmem", Kokkos::RangePolicy<TagCopyLocalXShmem>(0,system->N_local), *this);
+  Kokkos::DefaultRemoteMemorySpace().fence();;
+
   Kokkos::parallel_reduce("ForceSNAP::find_max_neighs",nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Experimental::Max<int>(max_neighs));
 
   sna.nmax = max_neighs;
@@ -180,7 +191,7 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
   T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
 
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
-  int team_size_max = Kokkos::TeamPolicy<>::team_size_max(*this);
+  int team_size_max = Kokkos::TeamPolicy<TagForceCompute>::team_size_max(*this);
   int vector_length = 8;
 #ifdef KOKKOS_ENABLE_CUDA
   int team_size = 20;//max_neighs;
@@ -189,12 +200,14 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
 #else
   int team_size = 1;
 #endif
-  Kokkos::TeamPolicy<> policy(nlocal,team_size,vector_length);
+  Kokkos::TeamPolicy<TagForceCompute> policy(nlocal,team_size,vector_length);
 
   Kokkos::parallel_for("ForceSNAP::compute",policy
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
     ,*this);
+  Kokkos::fence();
+  Kokkos::DefaultRemoteMemorySpace().fence();;
 //static int step =0;
 //step++;
 //if(step%10==0)
@@ -582,7 +595,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
 
 template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
-void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_type& team) const {
+void ForceSNAP<NeighborClass>::operator() (TagForceCompute, const Kokkos::TeamPolicy<>::member_type& team) const {
   const int i = team.league_rank();
   SNA my_sna(sna,team);
   const double x_i = x(i,0);
@@ -608,9 +621,49 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] (){
       T_INT j = neighs_i(jj);
-      const T_F_FLOAT dx = x(j,0) - x_i;
-      const T_F_FLOAT dy = x(j,1) - y_i;
-      const T_F_FLOAT dz = x(j,2) - z_i;
+    const T_INDEX jg = global_index(j);
+    #ifdef SHMEMTESTS_USE_SCALAR
+    #ifdef SHMEMTESTS_USE_HALO
+    const T_X_FLOAT xj_shmem = x(j,0);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x(j,1);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x(j,2);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_HALO_LOCAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x(j,0):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x(j,1):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x(j,2):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_LOCAL_GLOBAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+0]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+1]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+2]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const T_X_FLOAT xj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #else
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const double3 posj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK);
+    const T_X_FLOAT xj_shmem = posj_shmem.x;
+    const T_X_FLOAT yj_shmem = posj_shmem.y;
+    const T_X_FLOAT zj_shmem = posj_shmem.z;
+    #endif
+    #endif
+
+    T_F_FLOAT dx = -(abs(x_i - xj_shmem)>domain_x/2?
+                           (x_i-xj_shmem<0?x_i-xj_shmem+domain_x:x_i-xj_shmem-domain_x)
+                           :x_i-xj_shmem);
+    T_F_FLOAT dy = -(abs(y_i - yj_shmem)>domain_y/2?
+                           (y_i-yj_shmem<0?y_i-yj_shmem+domain_y:y_i-yj_shmem-domain_y)
+                           :y_i-yj_shmem);
+    T_F_FLOAT dz = -(abs(z_i - zj_shmem)>domain_z/2?
+                           (z_i-zj_shmem<0?z_i-zj_shmem+domain_z:z_i-zj_shmem-domain_z)
+                           :z_i-zj_shmem);
+      //const T_F_FLOAT dx = xj_shmem - x_i;
+      //const T_F_FLOAT dy = yj_shmem - y_i;
+      //const T_F_FLOAT dz = zj_shmem - z_i;
 
       const int type_j = type(j);
       const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
@@ -628,9 +681,48 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
       [&] (const int jj, int& offset, bool final){
   //for (int jj = 0; jj < num_neighs; jj++) {
     T_INT j = neighs_i(jj);
-    const T_F_FLOAT dx = x(j,0) - x_i;
-    const T_F_FLOAT dy = x(j,1) - y_i;
-    const T_F_FLOAT dz = x(j,2) - z_i;
+    const T_INDEX jg = global_index(j);
+    #ifdef SHMEMTESTS_USE_SCALAR
+    #ifdef SHMEMTESTS_USE_HALO
+    const T_X_FLOAT xj_shmem = x(j,0);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x(j,1);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x(j,2);//x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_HALO_LOCAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x(j,0):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x(j,1):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x(j,2):x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_LOCAL_GLOBAL
+    const T_X_FLOAT xj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+0]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+1]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = jg/N_MAX_MASK==proc_rank?x_shmem.data()[j*3+2]:x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const T_X_FLOAT xj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,0);
+    const T_X_FLOAT yj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,1);
+    const T_X_FLOAT zj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK,2);
+    #endif
+    #else
+    #ifdef SHMEMTESTS_USE_GLOBAL
+    const double3 posj_shmem = x_shmem(jg/N_MAX_MASK,jg%N_MAX_MASK);
+    const T_X_FLOAT xj_shmem = posj_shmem.x;
+    const T_X_FLOAT yj_shmem = posj_shmem.y;
+    const T_X_FLOAT zj_shmem = posj_shmem.z;
+    #endif
+    #endif
+    T_F_FLOAT dx = -(abs(x_i - xj_shmem)>domain_x/2?
+                           (x_i-xj_shmem<0?x_i-xj_shmem+domain_x:x_i-xj_shmem-domain_x)
+                           :x_i-xj_shmem);
+    T_F_FLOAT dy = -(abs(y_i - yj_shmem)>domain_y/2?
+                           (y_i-yj_shmem<0?y_i-yj_shmem+domain_y:y_i-yj_shmem-domain_y)
+                           :y_i-yj_shmem);
+    T_F_FLOAT dz = -(abs(z_i - zj_shmem)>domain_z/2?
+                           (z_i-zj_shmem<0?z_i-zj_shmem+domain_z:z_i-zj_shmem-domain_z)
+                           :z_i-zj_shmem);
+    //const T_F_FLOAT dx = xj_shmem - x_i;
+    //const T_F_FLOAT dy = yj_shmem - y_i;
+    //const T_F_FLOAT dz = zj_shmem - z_i;
 
     const int type_j = type(j);
     const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
@@ -717,3 +809,17 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
   });
   //t5 += timer.seconds(); timer.reset();
 }
+
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceSNAP<NeighborClass>::operator() (TagCopyLocalXShmem, const T_INT& i) const {
+  #ifdef SHMEMTESTS_USE_SCALAR
+  x_shmem_local(i,0) = x(i,0);
+  x_shmem_local(i,1) = x(i,1);
+  x_shmem_local(i,2) = x(i,2);
+  #else
+  double3 pos = {x(i,0),x(i,1),x(i,2)};
+  x_shmem_local(i) = pos;
+  #endif
+}
+

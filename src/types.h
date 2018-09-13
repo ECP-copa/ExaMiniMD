@@ -96,7 +96,13 @@ typedef Kokkos::View<T_X_FLOAT*[3],Kokkos::LayoutRight>       t_x;          // P
 typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight> t_x_const;    // Positions
 typedef Kokkos::View<const T_X_FLOAT*[3],Kokkos::LayoutRight,
     Kokkos::MemoryTraits<Kokkos::RandomAccess>> t_x_const_rnd;    // Positions
+#ifdef SHMEMTESTS_USE_SCALAR
 typedef Kokkos::View<T_X_FLOAT**[3],Kokkos::LayoutRight,Kokkos::DefaultRemoteMemorySpace> t_x_shmem; // PGAS Positions
+typedef Kokkos::View<T_X_FLOAT*[3],Kokkos::LayoutRight> t_x_shmem_local; // Local PGAS Positions
+#else
+typedef Kokkos::View<double3**,Kokkos::LayoutRight,Kokkos::DefaultRemoteMemorySpace> t_x_shmem; // PGAS Positions
+typedef Kokkos::View<double3*,Kokkos::LayoutRight> t_x_shmem_local; // Local PGAS Positions
+#endif
 typedef Kokkos::View<T_V_FLOAT*[3]>       t_v;          // Velocities
 typedef Kokkos::View<T_F_FLOAT*[3]>       t_f;          // Force
 typedef Kokkos::View<T_F_FLOAT*[3],

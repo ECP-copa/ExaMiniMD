@@ -170,14 +170,23 @@ protected:
 
 
   t_x x;
+  t_x_shmem x_shmem;
+  t_x_shmem_local x_shmem_local;
   t_f_atomic f;
   t_type type;
+  t_index global_index;
 
+  T_X_FLOAT domain_x, domain_y, domain_z;
+  int proc_rank;
 public:
 
+  struct TagForceCompute {};
   KOKKOS_INLINE_FUNCTION
-  void operator() (const Kokkos::TeamPolicy<>::member_type& team) const;
+  void operator() (TagForceCompute, const Kokkos::TeamPolicy<>::member_type& team) const;
 
+  struct TagCopyLocalXShmem {};
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagCopyLocalXShmem, const T_INT& i) const;
 };
 
 #define FORCE_MODULES_EXTERNAL_TEMPLATE
