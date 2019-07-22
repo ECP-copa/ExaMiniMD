@@ -159,7 +159,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
       } else {
         printf("\n");
         printf("Step Temp E_pair TotEng CPU\n");
-        printf("     %i %lf %lf %lf %lf %e\n",step,T,PE,PE+KE,0.0);
+        printf("     %i %lf %lf %lf %lf\n",step,T,PE,PE+KE,0.0);
       }
     }
   }
