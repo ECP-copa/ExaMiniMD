@@ -180,7 +180,7 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
   T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
 
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
-  int team_size_max = Kokkos::TeamPolicy<>::team_size_max(*this);
+  int team_size_max = Kokkos::TeamPolicy<>(team_scratch_size,thread_scratch_size).team_size_max(*this,Kokkos::ParallelForTag());
   int vector_length = 8;
 #ifdef KOKKOS_ENABLE_CUDA
   int team_size = 20;//max_neighs;
