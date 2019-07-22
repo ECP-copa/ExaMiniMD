@@ -137,7 +137,7 @@ template<class NeighList>
 struct FindMaxNumNeighs {
   NeighList neigh_list;
 
-  FindMaxNumNeighs(NeighList& nl): neigh_list(nl) {}  
+  FindMaxNumNeighs(NeighList& nl): neigh_list(nl) {}
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i, int& max_neighs) const {
@@ -172,7 +172,7 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
     const int num_neighs = neighs_i.get_num_neighs();
     if(max_neighs<num_neighs) max_neighs = num_neighs;
   }*/
-  Kokkos::parallel_reduce("ForceSNAP::find_max_neighs",nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Experimental::Max<int>(max_neighs));
+  Kokkos::parallel_reduce("ForceSNAP::find_max_neighs",nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Max<int>(max_neighs));
 
   sna.nmax = max_neighs;
 
@@ -272,8 +272,8 @@ void ForceSNAP<NeighborClass>::init_coeff(int narg, char **arg)
 
     // ncoeffall should be (ncoeff+2)*(ncoeff+1)/2
     // so, ncoeff = floor(sqrt(2*ncoeffall))-1
-    
-    ncoeff = sqrt(2*ncoeffall)-1; 
+
+    ncoeff = sqrt(2*ncoeffall)-1;
     ncoeffq = (ncoeff*(ncoeff+1))/2;
     int ntmp = 1+ncoeff+ncoeffq;
     if (ntmp != ncoeffall) {
@@ -384,7 +384,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
 
   int nelemfile = atoi(words[0]);
   ncoeffall = atoi(words[1]);
-  
+
   // Set up element lists
 
   radelem = Kokkos::View<T_F_FLOAT*>("pair:radelem",nelements);
@@ -504,7 +504,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
   switchflag = 1;
   bzeroflag = 1;
   quadraticflag = 0;
-  
+
   // open SNAP parameter file on proc 0
 
   FILE *fpparam;
@@ -537,7 +537,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
     //nwords = atom->count_words(line);
     if(line[0]!=10) nwords = 2; else nwords = 0;
     if (nwords == 0) continue;
-    
+
     if (nwords != 2)
       Kokkos::abort("Incorrect format in SNAP parameter file");
 
@@ -548,7 +548,7 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
     char* keyval = strtok(NULL,"' \t\n\r\f");
 
     //if (comm->me == 0) {
-      //if (screen) 
+      //if (screen)
       //if (logfile) fprintf(logfile,"SNAP keyword %s %s \n",keywd,keyval);
     //}
 
