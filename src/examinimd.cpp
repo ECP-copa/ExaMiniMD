@@ -64,13 +64,13 @@ void ExaMiniMD::init(int argc, char* argv[]) {
   // Lets parse the command line arguments
   input->read_command_line_args(argc,argv);
 
-  // Read input file 
+  // Read input file
   input->read_file();
 
   // Now we know which integrator type to use
   if(input->integrator_type == INTEGRATOR_NVE)
     integrator = new IntegratorNVE(system);
-  
+
   // Fill some binning
   if(input->binning_type == BINNING_KKSORT)
     binning = new BinningKKSort(system);
@@ -81,7 +81,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
 #include<modules_force.h>
 #undef FORCE_MODULES_INSTANTIATION
   else comm->error("Invalid ForceType");
-  for(int line = 0; line < input->force_coeff_lines.dimension_0(); line++) {
+  for(int line = 0; line < input->force_coeff_lines.extent(0); line++) {
     //input->input_data.print_line(input->force_coeff_lines(line));
     //printf("init_coeff: %i %i\n",line,input->input_data.words_in_line(input->force_coeff_lines(line)));
     force->init_coeff(input->input_data.words_in_line(input->force_coeff_lines(line)),
@@ -117,7 +117,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     input->create_lattice(comm);
 
   // Create the Halo
-  comm->exchange(); 
+  comm->exchange();
 
   // Sort particles
   T_F_FLOAT neigh_cutoff = input->force_cutoff + input->neighbor_skin;
@@ -141,7 +141,7 @@ void ExaMiniMD::init(int argc, char* argv[]) {
     // Reverse Communicate Force Update on Halo
     comm->update_force();
   }
-  
+
   // Initial output
   int step = 0;
   if(input->thermo_rate > 0) {
@@ -189,8 +189,8 @@ void ExaMiniMD::run(int nsteps) {
 
   // Timestep Loop
   for(int step = 1; step <= nsteps; step++ ) {
-    
-    // Do first part of the verlet time step integration 
+
+    // Do first part of the verlet time step integration
     other_timer.reset();
     integrator->initial_integrate();
     other_time += other_timer.seconds();
@@ -198,7 +198,7 @@ void ExaMiniMD::run(int nsteps) {
     if(step%input->comm_exchange_rate==0 && step >0) {
       // Exchange particles
       comm_timer.reset();
-      comm->exchange(); 
+      comm->exchange();
       comm_time += comm_timer.seconds();
 
       // Sort particles
@@ -210,7 +210,7 @@ void ExaMiniMD::run(int nsteps) {
       comm_timer.reset();
       comm->exchange_halo();
       comm_time += comm_timer.seconds();
-      
+
       // Create binning for neighborlist construction
       neigh_timer.reset();
       binning->create_binning(neigh_cutoff,neigh_cutoff,neigh_cutoff,1,true,true,false);
@@ -226,16 +226,16 @@ void ExaMiniMD::run(int nsteps) {
       comm_time += comm_timer.seconds();
     }
 
-    // Zero out forces 
+    // Zero out forces
     force_timer.reset();
     Kokkos::deep_copy(system->f,0.0);
-   
+
     // Compute Short Range Force
     force->compute(system,binning,neighbor);
     force_time += force_timer.seconds();
 
-    // This is where Bonds, Angles and KSpace should go eventually 
-    
+    // This is where Bonds, Angles and KSpace should go eventually
+
     // Reverse Communicate Force Update on Halo
     if(input->comm_newton) {
       comm_timer.reset();
@@ -243,7 +243,7 @@ void ExaMiniMD::run(int nsteps) {
       comm_time += comm_timer.seconds();
     }
 
-    // Do second part of the verlet time step integration 
+    // Do second part of the verlet time step integration
     other_timer.reset();
     integrator->final_integrate();
 
@@ -267,7 +267,7 @@ void ExaMiniMD::run(int nsteps) {
 
     if(input->dumpbinaryflag)
       dump_binary(step);
- 
+
     if(input->correctnessflag)
       check_correctness(step);
 
@@ -297,10 +297,10 @@ void ExaMiniMD::dump_binary(int step) {
   // On dump steps print configuration
 
   if(step%input->dumpbinary_rate) return;
-  
+
   FILE* fp;
   T_INT n = system->N_local;
-  
+
   char* filename = new char[MAXPATHLEN];
   sprintf(filename,"%s%s.%010d.%03d",input->dumpbinary_path,
           "/output",step,comm->process_rank());
@@ -340,7 +340,7 @@ void ExaMiniMD::dump_binary(int step) {
   fwrite(o_x.data(),sizeof(T_X_FLOAT),3*n,fp);
   fwrite(o_v.data(),sizeof(T_V_FLOAT),3*n,fp);
   fwrite(o_f.data(),sizeof(T_F_FLOAT),3*n,fp);
-    
+
   fclose(fp);
 }
 
@@ -358,7 +358,7 @@ void ExaMiniMD::check_correctness(int step) {
   FILE* fpref;
   T_INT n = system->N_local;
   T_INT ntmp;
-  
+
   char* filename = new char[MAXPATHLEN];
   sprintf(filename,"%s%s.%010d.%03d",input->reference_path,
           "/output",step,comm->process_rank());
@@ -368,25 +368,25 @@ void ExaMiniMD::check_correctness(int step) {
     sprintf(str,"Cannot open input file %s",filename);
     comm->error(str);
   }
-  
+
   fread(&ntmp,sizeof(T_INT),1,fpref);
-  if (ntmp != n) 
+  if (ntmp != n)
     comm->error("Mismatch in current and reference atom counts");
-  
+
   t_id idref = t_id("Correctness::id",n);
   t_type typeref = t_type("Correctness::type",n);
   t_q qref = t_q("Correctness::q",n);
   t_x xref = t_x("Correctness::x",n);
   t_v vref = t_v("Correctness::v",n);
   t_f fref = t_f("Correctness::f",n);
-  
+
   fread(idref.data(),sizeof(T_INT),n,fpref);
-  fread(typeref.data(),sizeof(T_INT),n,fpref); 
+  fread(typeref.data(),sizeof(T_INT),n,fpref);
   fread(qref.data(),sizeof(T_FLOAT),n,fpref);
   fread(xref.data(),sizeof(T_X_FLOAT),3*n,fpref);
   fread(vref.data(),sizeof(T_V_FLOAT),3*n,fpref);
   fread(fref.data(),sizeof(T_F_FLOAT),3*n,fpref);
-  
+
   T_FLOAT sumdelrsq = 0.0;
   T_FLOAT sumdelvsq = 0.0;
   T_FLOAT sumdelfsq = 0.0;
@@ -395,7 +395,7 @@ void ExaMiniMD::check_correctness(int step) {
   T_FLOAT maxdelf = 0.0;
   for (int i = 0; i < n; i++) {
     int ii = -1;
-    if (system->id(i) != idref(i)) 
+    if (system->id(i) != idref(i))
       for (int j = 0; j < n; j++) {
         if (system->id(j) == idref(i)) {
           ii = j;
@@ -404,7 +404,7 @@ void ExaMiniMD::check_correctness(int step) {
       }
     else
       ii = i;
-    
+
     if (ii == -1)
       printf("Unable to find current id matchinf reference id %d \n",idref(i));
     else {
@@ -417,7 +417,7 @@ void ExaMiniMD::check_correctness(int step) {
       maxdelr = MAX(fabs(delx),maxdelr);
       maxdelr = MAX(fabs(dely),maxdelr);
       maxdelr = MAX(fabs(delz),maxdelr);
-      
+
       delx = system->v(ii,0)-vref(i,0);
       dely = system->v(ii,1)-vref(i,1);
       delz = system->v(ii,2)-vref(i,2);
@@ -426,7 +426,7 @@ void ExaMiniMD::check_correctness(int step) {
       maxdelv = MAX(fabs(delx),maxdelv);
       maxdelv = MAX(fabs(dely),maxdelv);
       maxdelv = MAX(fabs(delz),maxdelv);
-      
+
       delx = system->f(ii,0)-fref(i,0);
       dely = system->f(ii,1)-fref(i,1);
       delz = system->f(ii,2)-fref(i,2);
