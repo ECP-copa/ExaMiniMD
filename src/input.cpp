@@ -90,7 +90,7 @@ void ItemizedFile::print_line(int i) {
 
 int ItemizedFile::words_in_line(int i){
   int count = 0;
-  for(int j=0; j<words_per_line; j++) 
+  for(int j=0; j<words_per_line; j++)
     if(words[i][j][0]) count++;
   return count;
 }
@@ -203,7 +203,7 @@ void Input::read_command_line_args(int argc, char* argv[]) {
       dumpbinaryflag = true;
       i += 2;
     }
-    
+
     // Correctness Check
     else if( (strcmp(argv[i], "--correctness") == 0) ) {
       correctness_rate = atoi(argv[i+1]);
@@ -264,7 +264,7 @@ void Input::read_lammps_file(const char* filename) {
 
 void Input::check_lammps_command(int line) {
   bool known = false;
-  
+
   if(input_data.words[line][0][0]==0) { known = true; }
   if(strstr(input_data.words[line][0],"#")) { known = true; }
   if(strcmp(input_data.words[line][0],"variable")==0) {
@@ -374,7 +374,7 @@ void Input::check_lammps_command(int line) {
       force_type = FORCE_LJ;
       force_cutoff = atof(input_data.words[line][2]);
       force_line = line;
-    } 
+    }
     if(strcmp(input_data.words[line][1],"snap")==0) {
       known = true;
       force_type = FORCE_SNAP;
@@ -386,7 +386,7 @@ void Input::check_lammps_command(int line) {
   }
   if(strcmp(input_data.words[line][0],"pair_coeff")==0) {
     known = true;
-    int n_coeff_lines = force_coeff_lines.dimension_0();
+    int n_coeff_lines = force_coeff_lines.extent(0);
     Kokkos::resize(force_coeff_lines,n_coeff_lines+1);
     force_coeff_lines( n_coeff_lines) = line;
     n_coeff_lines++;
@@ -426,7 +426,7 @@ void Input::check_lammps_command(int line) {
   }
   if(strcmp(input_data.words[line][0],"run")==0) {
     known = true;
-    nsteps = atoi(input_data.words[line][1]);    
+    nsteps = atoi(input_data.words[line][1]);
   }
   if(strcmp(input_data.words[line][0],"thermo")==0) {
     known = true;
@@ -472,9 +472,9 @@ void Input::create_lattice(Comm* comm) {
 
   // Create Simple Cubic Lattice
   if(lattice_style == LATTICE_SC) {
-    system->domain_x = lattice_constant * lattice_nx; 
-    system->domain_y = lattice_constant * lattice_ny; 
-    system->domain_z = lattice_constant * lattice_nz; 
+    system->domain_x = lattice_constant * lattice_nx;
+    system->domain_y = lattice_constant * lattice_ny;
+    system->domain_z = lattice_constant * lattice_nz;
 
     comm->create_domain_decomposition();
     s = *system;
@@ -727,7 +727,7 @@ void Input::create_lattice(Comm* comm) {
   // velocity geom option, i.e. uniform random kinetic energies.
   // zero out momentum of the whole system afterwards, to eliminate
   // drift (bad for energy statistics)
-  
+
   {  // Scope s
     System s = *system;
     T_FLOAT total_mass = 0.0;

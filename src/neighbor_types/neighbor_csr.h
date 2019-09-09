@@ -79,7 +79,7 @@
 #include <binning.h>
 
 template<class MemorySpace>
-struct NeighListCSR : public Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT> {
+struct NeighListCSR : public Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,void,T_INT> {
   struct NeighViewCSR {
     private:
       const T_INT* const ptr;
@@ -100,14 +100,14 @@ struct NeighListCSR : public Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,Mem
   typedef NeighViewCSR t_neighs;
 
   NeighListCSR() :
-    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>() {}
+    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,void,T_INT>() {}
   NeighListCSR (const NeighListCSR& rhs) :
-    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>(rhs) {
+    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,void,T_INT>(rhs) {
   }
 
   template<class EntriesType, class RowMapType>
   NeighListCSR (const EntriesType& entries_,const RowMapType& row_map_) :
-    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,T_INT>( entries_, row_map_) {}
+    Kokkos::StaticCrsGraph<T_INT,Kokkos::LayoutLeft,MemorySpace,void,T_INT>( entries_, row_map_) {}
 
 
   KOKKOS_INLINE_FUNCTION
@@ -274,10 +274,10 @@ public:
        for(int by_j = by-1; by_j<by+2; by_j++)
        for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
 
-       /*  if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) &&    
-             (bx_j>=nhalo) && (bx_j<nbinx+nhalo-1) &&    
+       /*  if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) &&
+             (bx_j>=nhalo) && (bx_j<nbinx+nhalo-1) &&
              (by_j>=nhalo) && (by_j<nbiny+nhalo-1) &&
-             (bz_j>=nhalo) && (bz_j<nbinz+nhalo-1)    
+             (bz_j>=nhalo) && (bz_j<nbinz+nhalo-1)
            ) continue;
 */
          const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
@@ -327,10 +327,10 @@ public:
        for(int by_j = by-1; by_j<by+2; by_j++)
        for(int bz_j = bz-1; bz_j<bz+2; bz_j++) {
 /*
-         if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) && 
-             (bx_j>nhalo) && (bx_j<nbinx+nhalo-2) && 
+         if( ( (bx_j<bx) || ((bx_j == bx) && ( (by_j>by) ||  ((by_j==by) && (bz_j>bz) )))) &&
+             (bx_j>nhalo) && (bx_j<nbinx+nhalo-2) &&
              (by_j>nhalo) && (by_j<nbiny+nhalo-2) &&
-             (bz_j>nhalo) && (bz_j<nbinz+nhalo-2) 
+             (bz_j>nhalo) && (bz_j<nbinz+nhalo-2)
            ) continue;*/
          const T_INT j_offset = bin_offsets(bx_j,by_j,bz_j);
 
