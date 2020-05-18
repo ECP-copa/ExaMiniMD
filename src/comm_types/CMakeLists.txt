@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.10)
+
+SET(HEADERS
+  ${HEADERS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/comm_mpi.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/comm_serial.h
+
+  PARENT_SCOPE)
+
+SET(SOURCES
+  ${SOURCES}
+  ${CMAKE_CURRENT_SOURCE_DIR}/comm_mpi.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/comm_serial.cpp
+
+  PARENT_SCOPE)

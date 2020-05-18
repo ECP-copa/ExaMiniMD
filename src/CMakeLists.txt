@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.10)
+
+set(HEADERS
+  binning.h
+  comm.h
+  examinimd.h
+  force.h
+  input.h
+  integrator.h
+  integrator_nve.h
+  math_extra.h
+  modules_binning.h
+  modules_comm.h
+  modules_force.h
+  modules_integrator.h
+  modules_neighbor.h
+  modules_property.h
+  neighbor.h
+  property_kine.h
+  property_pote.h
+  property_temperature.h
+  system.h
+  types.h)
+
+set(SOURCES
+  binning.cpp
+  comm.cpp
+  examinimd.cpp
+  force.cpp
+  input.cpp
+  integrator.cpp
+  integrator_nve.cpp
+  neighbor.cpp
+  property_kine.cpp
+  property_pote.cpp
+  property_temperature.cpp
+  system.cpp)
+
+set(SUBDIRECTORIES
+  binning_types
+  comm_types
+  force_types
+  neighbor_types)
+
+foreach(SUBDIR ${SUBDIRECTORIES})
+  add_subdirectory(${SUBDIR})
+endforeach()
+
+if (USE_CUDA)
+  set_property(SOURCE ${SOURCES} PROPERTIES LANGUAGE CUDA)
+endif()
+
+add_executable(ExaMiniMD main.cpp ${SOURCES} ${HEADERS})
+target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
+target_link_libraries(ExaMiniMD Kokkos::kokkos)
