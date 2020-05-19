@@ -36,6 +36,8 @@ set(SOURCES
   property_temperature.cpp
   system.cpp)
 
+add_executable(ExaMiniMD main.cpp ${SOURCES} ${HEADERS})
+
 set(SUBDIRECTORIES
   binning_types
   comm_types
@@ -49,7 +51,5 @@ endforeach()
 if (USE_CUDA)
   set_property(SOURCE ${SOURCES} PROPERTIES LANGUAGE CUDA)
 endif()
-
-add_executable(ExaMiniMD main.cpp ${SOURCES} ${HEADERS})
 target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
 target_link_libraries(ExaMiniMD Kokkos::kokkos)

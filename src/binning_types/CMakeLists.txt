@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
 SET(HEADERS
-  ${HEADERS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/binning_kksort.h
-
-  PARENT_SCOPE)
+  binning_kksort.h)
 
 SET(SOURCES
-  ${SOURCES}
-  ${CMAKE_CURRENT_SOURCE_DIR}/binning_kksort.cpp
+  binning_kksort.cpp)
 
-  PARENT_SCOPE)
+foreach(FILE ${SOURCES} ${HEADERS})
+  target_sources(ExaMiniMD PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE})
+endforeach()

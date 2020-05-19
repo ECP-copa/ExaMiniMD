@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 
 SET(HEADERS
-  ${HEADERS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_2d.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_csr.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_csr_map_constr.h
-
-  PARENT_SCOPE)
+  neighbor_2d.h
+  neighbor_csr.h
+  neighbor_csr_map_constr.h)
 
 SET(SOURCES
-  ${SOURCES}
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_2d.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_csr.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/neighbor_csr_map_constr.cpp
+  neighbor_2d.cpp
+  neighbor_csr.cpp
+  neighbor_csr_map_constr.cpp)
 
-  PARENT_SCOPE)
+foreach(FILE ${SOURCES} ${HEADERS})
+  target_sources(ExaMiniMD PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE})
+endforeach()

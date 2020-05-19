@@ -1,15 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 
 SET(HEADERS
-  ${HEADERS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/comm_mpi.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/comm_serial.h
-
-  PARENT_SCOPE)
+  comm_mpi.h
+  comm_serial.h)
 
 SET(SOURCES
-  ${SOURCES}
-  ${CMAKE_CURRENT_SOURCE_DIR}/comm_mpi.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/comm_serial.cpp
+  comm_mpi.cpp
+  comm_serial.cpp)
 
-  PARENT_SCOPE)
+foreach(FILE ${SOURCES} ${HEADERS})
+  target_sources(ExaMiniMD PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE})
+endforeach()
