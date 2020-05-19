@@ -53,4 +53,10 @@ if (USE_CUDA)
 endif()
 
 target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
+
+if (USE_MPI)
+  target_include_directories(ExaMiniMD PRIVATE ${MPI_INCLUDE_PATH})
+  target_link_libraries(ExaMiniMD ${MPI_LIBRARIES})
+endif()
+
 target_link_libraries(ExaMiniMD Kokkos::kokkos)
