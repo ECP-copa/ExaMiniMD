@@ -50,13 +50,9 @@ if (USE_CUDA)
   set_target_properties(ExaMiniMD PROPERTIES LANGUAGE CUDA)
 endif()
 
-target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
-
-set(EXAMINIMD_LIBS
-  Kokkos::kokkos)
-
 if (USE_MPI)
-  list(APPEND EXAMINIMD_LIBS MPI::MPI_CXX)
+  target_compile_definitions(ExaMiniMD PRIVATE EXAMIND_ENABLE_MPI)
 endif()
 
-target_link_libraries(ExaMiniMD ${EXAMINIMD_LIBS})
+target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
+target_link_libraries(ExaMiniMD PRIVATE $<$<BOOL:${USE_MPI}>:MPI::MPI_CXX> Kokkos::kokkos)
