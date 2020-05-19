@@ -52,9 +52,11 @@ endif()
 
 target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
 
+set(EXAMINIMD_LIBS
+  Kokkos::kokkos)
+
 if (USE_MPI)
-  target_include_directories(ExaMiniMD PRIVATE ${MPI_INCLUDE_PATH})
-  target_link_libraries(ExaMiniMD ${MPI_LIBRARIES})
+  list(APPEND EXAMINIMD_LIBS MPI::MPI_CXX)
 endif()
 
-target_link_libraries(ExaMiniMD Kokkos::kokkos)
+target_link_libraries(ExaMiniMD ${EXAMINIMD_LIBS})

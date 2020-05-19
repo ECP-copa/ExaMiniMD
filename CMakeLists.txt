@@ -7,7 +7,7 @@ option(USE_MPI "MPI" ON)
 
 if (USE_MPI)
   add_definitions(-DEXAMIND_ENABLE_MPI)
-  find_package(MPI REQUIRED)
+  find_package(MPI REQUIRED CXX)
 else()
   string(FIND "${Kokkos_DEVICES}" "Cuda" USING_CUDA)
   # string FIND returns -1 if not found
