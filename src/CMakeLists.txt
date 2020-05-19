@@ -49,7 +49,8 @@ foreach(SUBDIR ${SUBDIRECTORIES})
 endforeach()
 
 if (USE_CUDA)
-  set_property(SOURCE ${SOURCES} PROPERTIES LANGUAGE CUDA)
+  set_target_properties(ExaMiniMD PROPERTIES LANGUAGE CUDA)
 endif()
+
 target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
 target_link_libraries(ExaMiniMD Kokkos::kokkos)
