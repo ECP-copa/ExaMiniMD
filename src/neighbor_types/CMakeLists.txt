@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 SET(HEADERS
   neighbor_2d.h
   neighbor_csr.h

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 SET(HEADERS
   force_lj_cell.h
   force_lj_idial_neigh.h
