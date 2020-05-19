@@ -6,6 +6,4 @@ SET(SOURCES
   comm_mpi.cpp
   comm_serial.cpp)
 
-foreach(FILE ${SOURCES} ${HEADERS})
-  target_sources(ExaMiniMD PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE})
-endforeach()
+target_sources(ExaMiniMD PRIVATE ${SOURCES} ${HEADERS})

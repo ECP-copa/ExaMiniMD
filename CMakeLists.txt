@@ -21,5 +21,8 @@ else()
   endif()
 endif()
 
+# force target_source to resolve relative paths immediately
+cmake_policy(SET CMP0076 NEW)
+
 add_subdirectory(src)
 add_subdirectory(input)
