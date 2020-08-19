@@ -38,8 +38,8 @@
 
 #include <neighbor_2d.h>
 
-#ifdef KOKKOS_ENABLE_CUDA
-template struct Neighbor2D<typename Kokkos::Cuda::memory_space>;
+#ifdef EMD_ENABLE_GPU
+template struct Neighbor2D<t_neigh_mem_space>;
 #endif
 template struct Neighbor2D<Kokkos::HostSpace>;
 
