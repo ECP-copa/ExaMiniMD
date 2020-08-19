@@ -84,6 +84,9 @@ ForceSNAP<NeighborClass>::ForceSNAP(char** args, System* system_, bool half_neig
 #if defined(KOKKOS_ENABLE_CUDA)
       std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Cuda>::value ?
           Kokkos::DefaultExecutionSpace::concurrency()/vector_length :
+#elif defined(KOKKOS_ENABLE_HIP)
+      std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Experimental::HIP>::value ?
+          Kokkos::DefaultExecutionSpace::concurrency()/vector_length :
 #else
           Kokkos::DefaultExecutionSpace::concurrency();
 #endif
@@ -182,7 +185,7 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
   //printf("Sizes: %i %i\n",team_scratch_size/1024,thread_scratch_size/1024);
   int vector_length = 8;
   int team_size_max = Kokkos::TeamPolicy<>(nlocal,Kokkos::AUTO).team_size_max(*this,Kokkos::ParallelForTag());
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef EMD_ENABLE_GPU
   int team_size = 20;//max_neighs;
   if(team_size*vector_length > team_size_max)
     team_size = team_size_max/vector_length;

@@ -38,8 +38,8 @@
 
 #include <neighbor_csr.h>
 
-#ifdef KOKKOS_ENABLE_CUDA
-template struct NeighborCSR<typename Kokkos::Cuda::memory_space>;
+#ifdef EMD_ENABLE_GPU
+template struct NeighborCSR<t_neigh_mem_space>;
 #endif
 template struct NeighborCSR<Kokkos::HostSpace>;
 

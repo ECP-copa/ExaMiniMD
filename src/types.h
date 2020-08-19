@@ -178,5 +178,10 @@ t_scalar3<Scalar> operator *
   (const Scalar& b, const t_scalar3<Scalar>& a) {
   return t_scalar3<Scalar>(a.x*b,a.y*b,a.z*b);
 }
+
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#define EMD_ENABLE_GPU
+#endif
+
 #endif
 
