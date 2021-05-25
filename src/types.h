@@ -179,7 +179,7 @@ t_scalar3<Scalar> operator *
   return t_scalar3<Scalar>(a.x*b,a.y*b,a.z*b);
 }
 
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
 #define EMD_ENABLE_GPU
 #endif
 

@@ -59,7 +59,7 @@ ExaMiniMD::ExaMiniMD() {
 void ExaMiniMD::init(int argc, char* argv[]) {
 
   if(system->do_print)
-    Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
+    Kokkos::DefaultExecutionSpace{}.print_configuration(std::cout);
 
   // Lets parse the command line arguments
   input->read_command_line_args(argc,argv);
