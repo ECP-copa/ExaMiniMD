@@ -87,6 +87,9 @@ ForceSNAP<NeighborClass>::ForceSNAP(char** args, System* system_, bool half_neig
 #elif defined(KOKKOS_ENABLE_HIP)
       std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Experimental::HIP>::value ?
           Kokkos::DefaultExecutionSpace::concurrency()/vector_length :
+#elif defined(KOKKOS_ENABLE_SYCL)
+      std::is_same<Kokkos::DefaultExecutionSpace,Kokkos::Experimental::SYCL>::value ?
+          Kokkos::DefaultExecutionSpace::concurrency()/vector_length :
 #else
           Kokkos::DefaultExecutionSpace::concurrency();
 #endif
