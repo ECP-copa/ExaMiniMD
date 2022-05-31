@@ -223,8 +223,6 @@ protected:
   int chunk_size,chunk_offset;
   int host_flag;
 
-  // How much parallelism to use within an interaction
-  int vector_length;
   // How many interactions can be run concurrently
   int concurrent_interactions;
 
@@ -331,13 +329,13 @@ public:
   static constexpr int tile_size_compute_yi = 8;
   static constexpr int team_size_compute_fused_deidrj = sizeof(double) == 4 ? 4 : 2;
 #endif
-
+static constexpr int vector_length = SNAP_KOKKOS_DEVICE_VECLEN;
 
 // Custom MDRangePolicy, Rank3, to reduce verbosity of kernel launches
   // This hides the Kokkos::IndexType<int> and Kokkos::Rank<3...>
   // and reduces the verbosity of the LaunchBound by hiding the explicit
   // multiplication by vector_length
-  template <int num_tiles, class TagPairSNAP>
+  //template <int num_tiles, class TagPairSNAP>
   //using Snap3DRangePolicy = typename Kokkos::MDRangePolicy<Kokkos::IndexType<int>, Kokkos::Rank<3, Kokkos::Iterate::Left, Kokkos::Iterate::Left>, Kokkos::LaunchBounds<vector_length * num_tiles>, TagPairSNAP>;
 
   // Custom SnapAoSoATeamPolicy to reduce the verbosity of kernel launches

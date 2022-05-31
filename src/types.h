@@ -183,5 +183,11 @@ t_scalar3<Scalar> operator *
 #define EMD_ENABLE_GPU
 #endif
 
+// Needed to handle vector_length template parameter
+#ifdef EMD_ENABLE_GPU
+#define SNAP_KOKKOS_DEVICE_VECLEN 32
+#else
+#define SNAP_KOKKOS_DEVICE_VECLEN 1
 #endif
 
+#endif // Who is my partner?
