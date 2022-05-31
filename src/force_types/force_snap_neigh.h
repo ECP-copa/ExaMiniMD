@@ -77,6 +77,43 @@
 template<class NeighborClass>
 class ForceSNAP : public Force {
 public:
+  // lammps splice
+// Routines for both the CPU and GPU backend
+template<int NEIGHFLAG, int EVFLAG>
+struct TagComputeForce{};
+
+
+// GPU backend only
+struct TagComputeNeigh{};
+struct TagComputeCayleyKlein{};
+struct TagPreUi{};
+struct TagComputeUiSmall{}; // more parallelism, more divergence
+struct TagComputeUiLarge{}; // less parallelism, no divergence
+struct TagTransformUi{}; // re-order ulisttot from SoA to AoSoA, zero ylist
+struct TagComputeZi{};
+struct TagBeta{};
+struct TagComputeBi{};
+struct TagTransformBi{}; // re-order blist from AoSoA to AoS
+struct TagComputeYi{};
+struct TagComputeYiWithZlist{};
+template<int dir>
+struct TagComputeFusedDeidrjSmall{}; // more parallelism, more divergence
+template<int dir>
+struct TagComputeFusedDeidrjLarge{}; // less parallelism, no divergence
+
+// CPU backend only
+struct TagComputeNeighCPU{};
+struct TagPreUiCPU{};
+struct TagComputeUiCPU{};
+struct TagTransformUiCPU{};
+struct TagComputeZiCPU{};
+struct TagBetaCPU{};
+struct TagComputeBiCPU{};
+struct TagZeroYiCPU{};
+struct TagComputeYiCPU{};
+struct TagComputeDuidrjCPU{};
+struct TagComputeDeidrjCPU{};
+
   ForceSNAP(char** args, System* system, bool half_neigh_);
   ~ForceSNAP();
   
@@ -84,6 +121,89 @@ public:
   void compute(System* system, Binning* binning, Neighbor* neighbor );
 
   const char* name() {return "ForceSNAP";}
+// lammps splice
+/*  template<int NEIGHFLAG, int EVFLAG>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeForce<NEIGHFLAG,EVFLAG>,const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagBetaCPU,const int& ii) const;
+*/
+
+  // GPU backend only
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeNeigh,const typename Kokkos::TeamPolicy<TagComputeNeigh>::member_type& team) const;
+
+/*
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeCayleyKlein, const int iatom_mod, const int jnbor, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPreUi,const int iatom_mod, const int j, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeUiSmall,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiSmall>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeUiLarge,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiLarge>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagTransformUi,const int iatom_mod, const int j, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeZi,const int iatom_mod, const int idxz, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagBeta, const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeBi,const int iatom_mod, const int idxb, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagTransformBi,const int iatom_mod, const int idxb, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeYi,const int iatom_mod, const int idxz, const int iatom_div) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeYiWithZlist,const int iatom_mod, const int idxz, const int iatom_div) const;
+
+  template<int dir>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeFusedDeidrjSmall<dir>,const typename Kokkos::TeamPolicy<DeviceType, TagComputeFusedDeidrjSmall<dir> >::member_type& team) const;
+
+  template<int dir>
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeFusedDeidrjLarge<dir>,const typename Kokkos::TeamPolicy<DeviceType, TagComputeFusedDeidrjLarge<dir> >::member_type& team) const;
+
+  // CPU backend only
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeNeighCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeNeighCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagPreUiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagPreUiCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeUiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagTransformUiCPU, const int j, const int iatom) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeZiCPU,const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeBiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeBiCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeYiCPU,const int& ii) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeDuidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeDuidrjCPU>::member_type& team) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void operator() (TagComputeDeidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeDeidrjCPU>::member_type& team) const;
+*/
 
 protected:
   System* system;
@@ -99,6 +219,9 @@ protected:
   SNA sna;
 
   int nmax;
+   
+  int chunk_size,chunk_offset;
+  int host_flag;
 
   // How much parallelism to use within an interaction
   int vector_length;
@@ -178,7 +301,59 @@ public:
   KOKKOS_INLINE_FUNCTION
   void operator() (const Kokkos::TeamPolicy<>::member_type& team) const;
 
+ // Utility routine which wraps computing per-team scratch size requirements for
+  // ComputeNeigh, ComputeUi, and ComputeFusedDeidrj
+  template <typename scratch_type>
+  int scratch_size_helper(int values_per_team);
+
+// Static team/tile sizes for device offload
+
+#ifdef KOKKOS_ENABLE_HIP
+  static constexpr int team_size_compute_neigh = 2;
+  static constexpr int tile_size_compute_ck = 2;
+  static constexpr int tile_size_pre_ui = 2;
+  static constexpr int team_size_compute_ui = 2;
+  static constexpr int tile_size_transform_ui = 2;
+  static constexpr int tile_size_compute_zi = 2;
+  static constexpr int tile_size_compute_bi = 2;
+  static constexpr int tile_size_transform_bi = 2;
+  static constexpr int tile_size_compute_yi = 2;
+  static constexpr int team_size_compute_fused_deidrj = 2;
+#else
+  static constexpr int team_size_compute_neigh = 4;
+  static constexpr int tile_size_compute_ck = 4;
+  static constexpr int tile_size_pre_ui = 4;
+  static constexpr int team_size_compute_ui = sizeof(double) == 4 ? 8 : 4;
+  static constexpr int tile_size_transform_ui = 4;
+  static constexpr int tile_size_compute_zi = 8;
+  static constexpr int tile_size_compute_bi = 4;
+  static constexpr int tile_size_transform_bi = 4;
+  static constexpr int tile_size_compute_yi = 8;
+  static constexpr int team_size_compute_fused_deidrj = sizeof(double) == 4 ? 4 : 2;
+#endif
+
+
+// Custom MDRangePolicy, Rank3, to reduce verbosity of kernel launches
+  // This hides the Kokkos::IndexType<int> and Kokkos::Rank<3...>
+  // and reduces the verbosity of the LaunchBound by hiding the explicit
+  // multiplication by vector_length
+  template <int num_tiles, class TagPairSNAP>
+  //using Snap3DRangePolicy = typename Kokkos::MDRangePolicy<Kokkos::IndexType<int>, Kokkos::Rank<3, Kokkos::Iterate::Left, Kokkos::Iterate::Left>, Kokkos::LaunchBounds<vector_length * num_tiles>, TagPairSNAP>;
+
+  // Custom SnapAoSoATeamPolicy to reduce the verbosity of kernel launches
+  // This hides the LaunchBounds abstraction by hiding the explicit
+  // multiplication by vector length
+  template <int num_teams, class TagPairSNAP>
+  using SnapAoSoATeamPolicy = typename Kokkos::TeamPolicy<Kokkos::LaunchBounds<vector_length * num_teams>, TagPairSNAP>;
+
+
+
+
+
 };
+
+
+
 
 #define FORCE_MODULES_EXTERNAL_TEMPLATE
 #define FORCETYPE_DECLARE_TEMPLATE_MACRO(NeighType) ForceSNAP<NeighType>

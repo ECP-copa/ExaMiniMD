@@ -53,6 +53,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "force_snap_neigh.h"
+// Headers added by AJP to fix compile issues
+//#include "pair_snap_kokkos.h"
+//#include "neighbor_kokkos.h"
+
 
 #define MAXLINE 1024
 #define MAXWORD 3
@@ -69,6 +73,14 @@
 //static double t6 = 0.0;
 //static double t7 = 0.0;
 /* ---------------------------------------------------------------------- */
+
+// AJP, Stan, For SNAP update:
+
+//int num_teams;
+//int vector_length_;
+//static constexpr int vector_length = vector_length_;
+//template <class Device, int num_teams, class Tag>
+//using SnapAoSoATeamPolicy = typename Kokkos::TeamPolicy<Device, Kokkos::LaunchBounds<vector_length * num_teams>, Tag>;
 
 template<class NeighborClass>
 ForceSNAP<NeighborClass>::ForceSNAP(char** args, System* system_, bool half_neigh_):Force(args,system_,half_neigh_)
@@ -156,6 +168,8 @@ struct FindMaxNumNeighs {
    This version is a straightforward implementation
    ---------------------------------------------------------------------- */
 
+// Functor that will be replaced by LAMMPS version
+
 template<class NeighborClass>
 void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbor* neighbor_)
 {
@@ -179,9 +193,9 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
     if(max_neighs<num_neighs) max_neighs = num_neighs;
   }*/
   Kokkos::parallel_reduce("ForceSNAP::find_max_neighs",nlocal, FindMaxNumNeighs<t_neigh_list>(neigh_list), Kokkos::Max<int>(max_neighs));
-
+  // snaKK (line 220 in lammps)
   sna.nmax = max_neighs;
-
+  // Put LAMMPS code starting here
   T_INT team_scratch_size = sna.size_team_scratch_arrays();
   T_INT thread_scratch_size = sna.size_thread_scratch_arrays();
 
@@ -189,18 +203,33 @@ void ForceSNAP<NeighborClass>::compute(System* system, Binning* binning, Neighbo
   int vector_length = 8;
   int team_size_max = Kokkos::TeamPolicy<>(nlocal,Kokkos::AUTO).team_size_max(*this,Kokkos::ParallelForTag());
 #ifdef EMD_ENABLE_GPU
+  // Same as 207 in lammps
   int team_size = 20;//max_neighs;
   if(team_size*vector_length > team_size_max)
     team_size = team_size_max/vector_length;
 #else
   int team_size = 1;
 #endif
-  Kokkos::TeamPolicy<> policy(nlocal,team_size,vector_length);
+      //ComputeNeigh -- lammps
+      {
+        // team_size_compute_neigh is defined in `pair_snap_kokkos.h`
+        int scratch_size = scratch_size_helper<int>(team_size_compute_neigh * max_neighs);
 
+        SnapAoSoATeamPolicy<team_size_compute_neigh, TagComputeNeigh> policy_neigh(chunk_size,team_size_compute_neigh,vector_length);
+        policy_neigh = policy_neigh.set_scratch_size(0, Kokkos::PerTeam(scratch_size));
+        Kokkos::parallel_for("ComputeNeigh",policy_neigh,*this);
+      }    
+
+
+
+/*
+  Kokkos::TeamPolicy<> policy(nlocal,team_size,vector_length);
+  // Replaced in LAMMPS by a lot of functors
   Kokkos::parallel_for("ForceSNAP::compute",policy
       .set_scratch_size(1,Kokkos::PerThread(thread_scratch_size))
       .set_scratch_size(1,Kokkos::PerTeam(team_scratch_size))
     ,*this);
+*/
 //static int step =0;
 //step++;
 //if(step%10==0)
@@ -586,6 +615,174 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
   delete[] found;
 }
 
+/*
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceSNAP<NeighborClass>::operator() (TagComputeNeighCPU,const typename Kokkos::TeamPolicy<TagComputeNeighCPU>::member_type& team) const {
+
+
+  int ii = team.league_rank();
+  const int i = d_ilist[ii + chunk_offset];
+  // TODO: snaKK is used in lammps
+  SNAKokkos my_sna = snaKK;
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
+  const int itype = type[i];
+  const int ielem = d_map[itype];
+  const double radi = d_radelem[ielem];
+
+  const int num_neighs = d_numneigh[i];
+
+  // rij[][3] = displacements between atom I and those neighbors
+  // inside = indices of neighbors of I within cutoff
+  // wj = weights for neighbors of I within cutoff
+  // rcutij = cutoffs for neighbors of I within cutoff
+  // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
+
+  int ninside = 0;
+  Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,num_neighs),
+      [&] (const int jj, int& count) {
+    Kokkos::single(Kokkos::PerThread(team), [&] () {
+      T_INT j = d_neighbors(i,jj);
+      const F_FLOAT dx = x(j,0) - xtmp;
+      const F_FLOAT dy = x(j,1) - ytmp;
+      const F_FLOAT dz = x(j,2) - ztmp;
+
+      const int jtype = type(j);
+      const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+      if (rsq < rnd_cutsq(itype,jtype))
+       count++;
+    });
+  },ninside);
+
+  d_ninside(ii) = ninside;
+
+  if (team.team_rank() == 0)
+  Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
+      [&] (const int jj, int& offset, bool final) {
+  //for (int jj = 0; jj < num_neighs; jj++) {
+    T_INT j = d_neighbors(i,jj);
+    const F_FLOAT dx = x(j,0) - xtmp;
+    const F_FLOAT dy = x(j,1) - ytmp;
+    const F_FLOAT dz = x(j,2) - ztmp;
+
+    const int jtype = type(j);
+    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const int elem_j = d_map[jtype];
+
+    if (rsq < rnd_cutsq(itype,jtype)) {
+      if (final) {
+        my_sna.rij(ii,offset,0) = static_cast<real_type>(dx);
+        my_sna.rij(ii,offset,1) = static_cast<real_type>(dy);
+        my_sna.rij(ii,offset,2) = static_cast<real_type>(dz);
+        my_sna.wj(ii,offset) = static_cast<real_type>(d_wjelem[elem_j]);
+        my_sna.rcutij(ii,offset) = static_cast<real_type>((radi + d_radelem[elem_j])*rcutfac);
+        my_sna.inside(ii,offset) = j;
+        if (chemflag)
+          my_sna.element(ii,offset) = elem_j;
+        else
+          my_sna.element(ii,offset) = 0;
+      }
+      offset++;
+    }
+  });
+}
+*/
+// lammps splice
+
+template<class NeighborClass>
+KOKKOS_INLINE_FUNCTION
+void ForceSNAP<NeighborClass>::operator() (TagComputeNeigh,const typename Kokkos::TeamPolicy<TagComputeNeigh>::member_type& team) const {
+
+  SNAKokkos my_sna = snaKK;
+
+  // extract atom number
+  int ii = team.team_rank() + team.league_rank() * team.team_size();
+  if (ii >= chunk_size) return;
+
+  // get a pointer to scratch memory
+  // This is used to cache whether or not an atom is within the cutoff.
+  // If it is, type_cache is assigned to the atom type.
+  // If it's not, it's assigned to -1.
+  const int tile_size = max_neighs; // number of elements per thread
+  const int team_rank = team.team_rank();
+  const int scratch_shift = team_rank * tile_size; // offset into pointer for entire team
+  int* type_cache = (int*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(int), 0) + scratch_shift;
+
+  // Load various info about myself up front
+  const int i = d_ilist[ii + chunk_offset];
+  const F_FLOAT xtmp = x(i,0);
+  const F_FLOAT ytmp = x(i,1);
+  const F_FLOAT ztmp = x(i,2);
+  const int itype = type[i];
+  const int ielem = d_map[itype];
+  const double radi = d_radelem[ielem];
+
+  const int num_neighs = d_numneigh[i];
+
+  // rij[][3] = displacements between atom I and those neighbors
+  // inside = indices of neighbors of I within cutoff
+  // wj = weights for neighbors of I within cutoff
+  // rcutij = cutoffs for neighbors of I within cutoff
+  // note Rij sign convention => dU/dRij = dU/dRj = -dU/dRi
+
+  // Compute the number of neighbors, store rsq
+  int ninside = 0;
+  Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team,num_neighs),
+    [&] (const int jj, int& count) {
+    T_INT j = d_neighbors(i,jj);
+    const F_FLOAT dx = x(j,0) - xtmp;
+    const F_FLOAT dy = x(j,1) - ytmp;
+    const F_FLOAT dz = x(j,2) - ztmp;
+
+    int jtype = type(j);
+    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+
+    if (rsq >= rnd_cutsq(itype,jtype)) {
+      jtype = -1; // use -1 to signal it's outside the radius
+    }
+
+    type_cache[jj] = jtype;
+
+    if (jtype >= 0)
+     count++;
+  }, ninside);
+
+  d_ninside(ii) = ninside;
+
+  Kokkos::parallel_scan(Kokkos::ThreadVectorRange(team,num_neighs),
+    [&] (const int jj, int& offset, bool final) {
+
+    const int jtype = type_cache[jj];
+
+    if (jtype >= 0) {
+      if (final) {
+        T_INT j = d_neighbors(i,jj);
+        const F_FLOAT dx = x(j,0) - xtmp;
+        const F_FLOAT dy = x(j,1) - ytmp;
+        const F_FLOAT dz = x(j,2) - ztmp;
+        const int elem_j = d_map[jtype];
+        my_sna.rij(ii,offset,0) = dx;
+        my_sna.rij(ii,offset,1) = dy;
+        my_sna.rij(ii,offset,2) = dz;
+        my_sna.wj(ii,offset) = d_wjelem[elem_j];
+        my_sna.rcutij(ii,offset) = (radi + d_radelem[elem_j])*rcutfac;
+        my_sna.inside(ii,offset) = j;
+        if (chemflag)
+          my_sna.element(ii,offset) = elem_j;
+        else
+          my_sna.element(ii,offset) = 0;
+      }
+      offset++;
+    }
+  });
+}
+
+
+/*
+// This is multiple smaller functors in lammps
 template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
 void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_type& team) const {
@@ -723,3 +920,14 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
   });
   //t5 += timer.seconds(); timer.reset();
 }
+*/
+
+
+template<class NeighborClass>
+template<typename scratch_type>
+int ForceSNAP<NeighborClass>::scratch_size_helper(int values_per_team) {
+  typedef Kokkos::View<scratch_type*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> > ScratchViewType;
+
+  return ScratchViewType::shmem_size(values_per_team);
+}
+
