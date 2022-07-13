@@ -267,9 +267,9 @@ void ForceSNAP<NeighborClass>::init_coeff(int narg, char **arg)
     for (int i = 0; i < nelements; i++)
       delete[] elements[i];
     delete[] elements;
-    radelem = Kokkos::View<T_F_FLOAT*>();
-    wjelem = Kokkos::View<T_F_FLOAT*>();
-    coeffelem = Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight>();
+    radelem = Kokkos::View<double*>();
+    wjelem = Kokkos::View<double*>();
+    coeffelem = Kokkos::View<double**, Kokkos::LayoutRight>();
   }
 
   nelements = narg - 5 - system->ntypes;
@@ -422,9 +422,9 @@ void ForceSNAP<NeighborClass>::read_files(char *coefffilename, char *paramfilena
 
   // Set up element lists
 
-  radelem = Kokkos::View<T_F_FLOAT*>("pair:radelem",nelements);
-  wjelem = Kokkos::View<T_F_FLOAT*>("pair:wjelem",nelements);
-  coeffelem = Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight>("pair:coeffelem",nelements,ncoeffall);
+  radelem = Kokkos::View<double*>("pair:radelem",nelements);
+  wjelem = Kokkos::View<double*>("pair:wjelem",nelements);
+  coeffelem = Kokkos::View<double**, Kokkos::LayoutRight>("pair:coeffelem",nelements,ncoeffall);
 
   int *found = new int[nelements];
   for (int ielem = 0; ielem < nelements; ielem++)
@@ -811,12 +811,12 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] (){
       T_INT j = neighs_i(jj);
-      const T_F_FLOAT dx = x(j,0) - x_i;
-      const T_F_FLOAT dy = x(j,1) - y_i;
-      const T_F_FLOAT dz = x(j,2) - z_i;
+      const double dx = x(j,0) - x_i;
+      const double dy = x(j,1) - y_i;
+      const double dz = x(j,2) - z_i;
 
       const int type_j = type(j);
-      const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+      const double rsq = dx*dx + dy*dy + dz*dz;
       const int elem_j = map[type_j];
 
       if( rsq < rnd_cutsq(type_i,type_j) )
@@ -831,12 +831,12 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
       [&] (const int jj, int& offset, bool final){
   //for (int jj = 0; jj < num_neighs; jj++) {
     T_INT j = neighs_i(jj);
-    const T_F_FLOAT dx = x(j,0) - x_i;
-    const T_F_FLOAT dy = x(j,1) - y_i;
-    const T_F_FLOAT dz = x(j,2) - z_i;
+    const double dx = x(j,0) - x_i;
+    const double dy = x(j,1) - y_i;
+    const double dz = x(j,2) - z_i;
 
     const int type_j = type(j);
-    const T_F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double rsq = dx*dx + dy*dy + dz*dz;
     const int elem_j = map[type_j];
 
     if( rsq < rnd_cutsq(type_i,type_j) ) {
@@ -884,7 +884,7 @@ void ForceSNAP<NeighborClass>::operator() (const Kokkos::TeamPolicy<>::member_ty
 
 
     Kokkos::single(Kokkos::PerThread(team), [&] (){
-    T_F_FLOAT fij[3];
+    double fij[3];
 
     fij[0] = 0.0;
     fij[1] = 0.0;

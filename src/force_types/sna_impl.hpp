@@ -30,8 +30,7 @@ SNA::SNA(double rfac0_in,
          int twojmax_in, double rmin0_in, int switch_flag_in, int bzero_flag_in,
          int chem_flag_in, int bnorm_flag_in, int wselfall_flag_in, int nelements_in, int switch_inner_flag_in)
 {
-  LAMMPS_NS::ExecutionSpace execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  host_flag = (execution_space == LAMMPS_NS::Host);
+  host_flag = 0;
 
   wself = static_cast<double>(1.0);
 
@@ -479,7 +478,7 @@ void SNA::pre_ui(const int& iatom_mod, const int& j, const int& ielem, const int
 // Version of the code that exposes additional parallelism by threading over `j_bend` values
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_ui_small(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int iatom_mod, const int j_bend, const int jnbor, const int iatom_div)
+void SNA::compute_ui_small(const typename Kokkos::TeamPolicy<>::member_type& team, const int iatom_mod, const int j_bend, const int jnbor, const int iatom_div)
 {
 
   // get shared memory offset
@@ -490,7 +489,7 @@ void SNA::compute_ui_small(const typename Kokkos::TeamPolicy<DeviceType>::member
   const int scratch_shift = team_rank * tile_size;
 
   // extract and wrap
-  const WignerWrapper<double, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  const WignerWrapper ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
@@ -509,7 +508,7 @@ void SNA::compute_ui_small(const typename Kokkos::TeamPolicy<DeviceType>::member
 // Version of the code that loops over all `j_bend` values which reduces integer arithmetic
 // and some amount of load imbalance, at the expense of reducing parallelism
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_ui_large(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int iatom_mod, const int jnbor, const int iatom_div)
+void SNA::compute_ui_large(const typename Kokkos::TeamPolicy<>::member_type& team, const int iatom_mod, const int jnbor, const int iatom_div)
 {
   // get shared memory offset
   // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
@@ -519,7 +518,7 @@ void SNA::compute_ui_large(const typename Kokkos::TeamPolicy<DeviceType>::member
   const int scratch_shift = team_rank * tile_size;
 
   // extract and wrap
-  const WignerWrapper<double, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  const WignerWrapper ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
@@ -539,7 +538,7 @@ void SNA::compute_ui_large(const typename Kokkos::TeamPolicy<DeviceType>::member
 
 // Core "evaluation" kernel that gets reused in `compute_ui_small` and `compute_ui_large`
 KOKKOS_FORCEINLINE_FUNCTION
-void SNA::evaluate_ui_jbend(const WignerWrapper<double, vector_length>& ulist_wrapper,
+void SNA::evaluate_ui_jbend(const WignerWrapper& ulist_wrapper,
           const complex& a, const complex& b, const double& sfac, const int& jelem,
           const int& iatom_mod, const int& j_bend, const int& iatom_div)
 {
@@ -773,7 +772,7 @@ void SNA::compute_bi(const int& iatom_mod, const int& jjb, const int& iatom_div)
 
 KOKKOS_INLINE_FUNCTION
 void SNA::compute_yi(int iatom_mod, int jjz, int iatom_div,
- const Kokkos::View<double***, Kokkos::LayoutLeft, DeviceType> &beta_pack)
+ const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack)
 {
 
   const int j1 = idxz(jjz, 0);
@@ -821,7 +820,7 @@ void SNA::compute_yi(int iatom_mod, int jjz, int iatom_div,
 
 KOKKOS_INLINE_FUNCTION
 void SNA::compute_yi_with_zlist(int iatom_mod, int jjz, int iatom_div,
- const Kokkos::View<double***, Kokkos::LayoutLeft, DeviceType> &beta_pack)
+ const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack)
 {
   const int j1 = idxz(jjz, 0);
   const int j2 = idxz(jjz, 1);
@@ -904,7 +903,7 @@ typename SNA::complex SNA::evaluate_zi(const int& j1, const int& j2, const int& 
 KOKKOS_FORCEINLINE_FUNCTION
 typename SNA::double SNA::evaluate_beta_scaled(const int& j1, const int& j2, const int& j,
           const int& iatom_mod, const int& elem1, const int& elem2, const int& elem3, const int& iatom_div,
-          const Kokkos::View<double***, Kokkos::LayoutLeft, DeviceType> &beta_pack) {
+          const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack) {
 
   double betaj = 0;
 
@@ -943,7 +942,7 @@ typename SNA::double SNA::evaluate_beta_scaled(const int& j1, const int& j2, con
 // Version of the code that exposes additional parallelism by threading over `j_bend` values
 template<int dir>
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_fused_deidrj_small(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int iatom_mod, const int j_bend, const int jnbor, const int iatom_div)
+void SNA::compute_fused_deidrj_small(const typename Kokkos::TeamPolicy<>::member_type& team, const int iatom_mod, const int j_bend, const int jnbor, const int iatom_div)
 {
   // get shared memory offset
   // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
@@ -953,8 +952,8 @@ void SNA::compute_fused_deidrj_small(const typename Kokkos::TeamPolicy<DeviceTyp
   const int scratch_shift = team_rank * tile_size;
 
   // extract, wrap shared memory buffer
-  WignerWrapper<double, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
-  WignerWrapper<double, vector_length> dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
@@ -979,7 +978,7 @@ void SNA::compute_fused_deidrj_small(const typename Kokkos::TeamPolicy<DeviceTyp
 // and some amount of load imbalance, at the expense of reducing parallelism
 template<int dir>
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int iatom_mod, const int jnbor, const int iatom_div)
+void SNA::compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<>::member_type& team, const int iatom_mod, const int jnbor, const int iatom_div)
 {
   // get shared memory offset
   // scratch size: 32 atoms * (twojmax+1) cached values, no double buffer
@@ -989,8 +988,8 @@ void SNA::compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<DeviceTyp
   const int scratch_shift = team_rank * tile_size;
 
   // extract, wrap shared memory buffer
-  WignerWrapper<double, vector_length> ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
-  WignerWrapper<double, vector_length> dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper ulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
+  WignerWrapper dulist_wrapper((complex*)team.team_shmem().get_shmem(team.team_size() * tile_size * sizeof(complex), 0) + scratch_shift, iatom_mod);
 
   // load parameters
   const complex a = a_pack(iatom_mod, jnbor, iatom_div);
@@ -1020,8 +1019,8 @@ void SNA::compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<DeviceTyp
 // Core "evaluation" kernel that gets reused in `compute_fused_deidrj_small` and
 // `compute_fused_deidrj_large`
 KOKKOS_FORCEINLINE_FUNCTION
-typename SNA::double SNA::evaluate_duidrj_jbend(const WignerWrapper<double, vector_length>& ulist_wrapper, const complex& a, const complex& b, const double& sfac,
-                      const WignerWrapper<double, vector_length>& dulist_wrapper, const complex& da, const complex& db, const double& dsfacu,
+typename SNA::double SNA::evaluate_duidrj_jbend(const WignerWrapper& ulist_wrapper, const complex& a, const complex& b, const double& sfac,
+                      const WignerWrapper& dulist_wrapper, const complex& da, const complex& db, const double& dsfacu,
                       const int& jelem, const int& iatom_mod, const int& j_bend, const int& iatom_div) {
 
   double dedr_full_sum = static_cast<double>(0);
@@ -1167,7 +1166,7 @@ typename SNA::double SNA::evaluate_duidrj_jbend(const WignerWrapper<double, vect
  * ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::pre_ui_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, const int& iatom, const int& ielem)
+void SNA::pre_ui_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, const int& iatom, const int& ielem)
 {
   for (int jelem = 0; jelem < nelements; jelem++) {
     for (int j = 0; j <= twojmax; j++) {
@@ -1200,7 +1199,7 @@ void SNA::pre_ui_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type&
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_ui_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor)
+void SNA::compute_ui_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor)
 {
   double rsq, r, x, y, z, z0, theta0;
 
@@ -1298,7 +1297,7 @@ void SNA::compute_zi_cpu(const int& iter)
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_bi_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom)
+void SNA::compute_bi_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom)
 {
   // for j1 = 0,...,twojmax
   //   for j2 = 0,twojmax
@@ -1396,7 +1395,7 @@ void SNA::compute_bi_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_t
 
 KOKKOS_INLINE_FUNCTION
 void SNA::compute_yi_cpu(int iter,
- const Kokkos::View<double**, DeviceType> &beta)
+ const Kokkos::View<double**> &beta)
 {
   double betaj;
   const int iatom = iter / idxz_max;
@@ -1503,7 +1502,7 @@ void SNA::compute_yi_cpu(int iter,
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_duidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor)
+void SNA::compute_duidrj_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor)
 {
   double rsq, r, x, y, z, z0, theta0, cs, sn;
   double dz0dr;
@@ -1534,7 +1533,7 @@ void SNA::compute_duidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::memb
 
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_deidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor)
+void SNA::compute_deidrj_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor)
 {
   t_scalar3<double> final_sum;
   const int jelem = element(iatom, jnbor);
@@ -1599,7 +1598,7 @@ void SNA::compute_deidrj_cpu(const typename Kokkos::TeamPolicy<DeviceType>::memb
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::add_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor,
+void SNA::add_uarraytot(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor,
     const double& r, const double& wj, const double& rcut,
     const double& sinner, const double& dinner, int jelem)
 {
@@ -1629,7 +1628,7 @@ void SNA::add_uarraytot(const typename Kokkos::TeamPolicy<DeviceType>::member_ty
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_uarray_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor,
+void SNA::compute_uarray_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor,
                          const double& x, const double& y, const double& z, const double& z0, const double& r)
 {
   double r0inv;
@@ -1719,7 +1718,7 @@ void SNA::compute_uarray_cpu(const typename Kokkos::TeamPolicy<DeviceType>::memb
 ------------------------------------------------------------------------- */
 
 KOKKOS_INLINE_FUNCTION
-void SNA::compute_duarray_cpu(const typename Kokkos::TeamPolicy<DeviceType>::member_type& team, int iatom, int jnbor,
+void SNA::compute_duarray_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int iatom, int jnbor,
                           const double& x, const double& y, const double& z,
                           const double& z0, const double& r, const double& dz0dr,
                           const double& wj, const double& rcut,
