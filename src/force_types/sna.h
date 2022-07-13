@@ -186,7 +186,7 @@ class SNA {
   // core "evaluation" functions that get plugged into "compute" functions
   // plugged into compute_ui_small, compute_ui_large
   KOKKOS_FORCEINLINE_FUNCTION
-  void evaluate_ui_jbend(const WignerWrapper, const complex&, const complex&, const double&, const int&,
+  void evaluate_ui_jbend(const WignerWrapper&, const complex&, const complex&, const double&, const int&,
                         const int&, const int&, const int&);
   // plugged into compute_zi, compute_yi
   KOKKOS_FORCEINLINE_FUNCTION

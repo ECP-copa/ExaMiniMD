@@ -624,7 +624,7 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeighCPU,const typename Kok
   int ii = team.league_rank();
   const int i = d_ilist[ii + chunk_offset];
   // TODO: snaKK is used in lammps
-  SNAKokkos my_sna = snaKK;
+  SNA my_sna = snaKK;
   const double xtmp = x(i,0);
   const double ytmp = x(i,1);
   const double ztmp = x(i,2);
@@ -645,12 +645,12 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeighCPU,const typename Kok
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] () {
       T_INT j = d_neighbors(i,jj);
-      const F_FLOAT dx = x(j,0) - xtmp;
-      const F_FLOAT dy = x(j,1) - ytmp;
-      const F_FLOAT dz = x(j,2) - ztmp;
+      const double dx = x(j,0) - xtmp;
+      const double dy = x(j,1) - ytmp;
+      const double dz = x(j,2) - ztmp;
 
       const int jtype = type(j);
-      const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+      const double rsq = dx*dx + dy*dy + dz*dz;
 
       if (rsq < rnd_cutsq(itype,jtype))
        count++;
@@ -664,12 +664,12 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeighCPU,const typename Kok
       [&] (const int jj, int& offset, bool final) {
   //for (int jj = 0; jj < num_neighs; jj++) {
     T_INT j = d_neighbors(i,jj);
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
+    const double dx = x(j,0) - xtmp;
+    const double dy = x(j,1) - ytmp;
+    const double dz = x(j,2) - ztmp;
 
     const int jtype = type(j);
-    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double rsq = dx*dx + dy*dy + dz*dz;
     const int elem_j = d_map[jtype];
 
     if (rsq < rnd_cutsq(itype,jtype)) {
@@ -696,7 +696,7 @@ template<class NeighborClass>
 KOKKOS_INLINE_FUNCTION
 void ForceSNAP<NeighborClass>::operator() (TagComputeNeigh,const typename Kokkos::TeamPolicy<TagComputeNeigh>::member_type& team) const {
 
-  SNAKokkos my_sna = snaKK;
+  SNA my_sna = snaKK;
 
   // extract atom number
   int ii = team.team_rank() + team.league_rank() * team.team_size();
@@ -713,9 +713,9 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeigh,const typename Kokkos
 
   // Load various info about myself up front
   const int i = d_ilist[ii + chunk_offset];
-  const F_FLOAT xtmp = x(i,0);
-  const F_FLOAT ytmp = x(i,1);
-  const F_FLOAT ztmp = x(i,2);
+  const double xtmp = x(i,0);
+  const double ytmp = x(i,1);
+  const double ztmp = x(i,2);
   const int itype = type[i];
   const int ielem = d_map[itype];
   const double radi = d_radelem[ielem];
@@ -733,12 +733,12 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeigh,const typename Kokkos
   Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team,num_neighs),
     [&] (const int jj, int& count) {
     T_INT j = d_neighbors(i,jj);
-    const F_FLOAT dx = x(j,0) - xtmp;
-    const F_FLOAT dy = x(j,1) - ytmp;
-    const F_FLOAT dz = x(j,2) - ztmp;
+    const double dx = x(j,0) - xtmp;
+    const double dy = x(j,1) - ytmp;
+    const double dz = x(j,2) - ztmp;
 
     int jtype = type(j);
-    const F_FLOAT rsq = dx*dx + dy*dy + dz*dz;
+    const double rsq = dx*dx + dy*dy + dz*dz;
 
     if (rsq >= rnd_cutsq(itype,jtype)) {
       jtype = -1; // use -1 to signal it's outside the radius
@@ -760,9 +760,9 @@ void ForceSNAP<NeighborClass>::operator() (TagComputeNeigh,const typename Kokkos
     if (jtype >= 0) {
       if (final) {
         T_INT j = d_neighbors(i,jj);
-        const F_FLOAT dx = x(j,0) - xtmp;
-        const F_FLOAT dy = x(j,1) - ytmp;
-        const F_FLOAT dz = x(j,2) - ztmp;
+        const double dx = x(j,0) - xtmp;
+        const double dy = x(j,1) - ytmp;
+        const double dz = x(j,2) - ztmp;
         const int elem_j = d_map[jtype];
         my_sna.rij(ii,offset,0) = dx;
         my_sna.rij(ii,offset,1) = dy;

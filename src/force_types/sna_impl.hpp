@@ -901,7 +901,7 @@ typename SNA::complex SNA::evaluate_zi(const int& j1, const int& j2, const int& 
 // Core "evaluation" kernel that extracts and rescales the appropriate `beta` value,
 // which gets used in both `compute_yi` and `compute_yi_from_zlist
 KOKKOS_FORCEINLINE_FUNCTION
-typename SNA::double SNA::evaluate_beta_scaled(const int& j1, const int& j2, const int& j,
+double SNA::evaluate_beta_scaled(const int& j1, const int& j2, const int& j,
           const int& iatom_mod, const int& elem1, const int& elem2, const int& elem3, const int& iatom_div,
           const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack) {
 
@@ -1019,7 +1019,7 @@ void SNA::compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<>::member
 // Core "evaluation" kernel that gets reused in `compute_fused_deidrj_small` and
 // `compute_fused_deidrj_large`
 KOKKOS_FORCEINLINE_FUNCTION
-typename SNA::double SNA::evaluate_duidrj_jbend(const WignerWrapper& ulist_wrapper, const complex& a, const complex& b, const double& sfac,
+double SNA::evaluate_duidrj_jbend(const WignerWrapper& ulist_wrapper, const complex& a, const complex& b, const double& sfac,
                       const WignerWrapper& dulist_wrapper, const complex& da, const complex& db, const double& dsfacu,
                       const int& jelem, const int& iatom_mod, const int& j_bend, const int& iatom_div) {
 
