@@ -95,11 +95,10 @@ struct alignas(8) FullHalfMapper {
   int flip_sign; // 0 -> isn't flipped, 1 -> conj, -1 -> -conj
 };
 
-template<class DeviceType, typename double_, int vector_length_>
+template<class DeviceType, typename double, int vector_length_>
 class SNA {
 
  public:
-  using double = double_;
   using complex = SNAComplex<double>;
   static constexpr int vector_length = vector_length_;
 

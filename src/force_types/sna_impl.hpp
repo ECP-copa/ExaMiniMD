@@ -17,7 +17,6 @@
 ------------------------------------------------------------------------- */
 
 #include "sna.h"
-#include "memory_kokkos.h"
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -60,12 +59,12 @@ SNA::SNA(double rfac0_in,
   build_indexlist();
 
   int jdimpq = twojmax + 2;
-  MemKK::realloc_kokkos(rootpqarray,"SNA::rootpqarray",jdimpq,jdimpq);
+  realloc_kokkos(rootpqarray,"SNA::rootpqarray",jdimpq,jdimpq);
 
-  MemKK::realloc_kokkos(cglist,"SNA::cglist",idxcg_max);
+  realloc_kokkos(cglist,"SNA::cglist",idxcg_max);
 
   if (bzero_flag) {
-    MemKK::realloc_kokkos(bzero,"sna:bzero",twojmax+1);
+    realloc_kokkos(bzero,"sna:bzero",twojmax+1);
     auto h_bzero = Kokkos::create_mirror_view(bzero);
 
     double www = wself*wself*wself;
@@ -91,7 +90,7 @@ void SNA::build_indexlist()
   // index list for cglist
 
   int jdim = twojmax + 1;
-  MemKK::realloc_kokkos(idxcg_block,"SNA::idxcg_block",jdim,jdim,jdim);
+  realloc_kokkos(idxcg_block,"SNA::idxcg_block",jdim,jdim,jdim);
   auto h_idxcg_block = Kokkos::create_mirror_view(idxcg_block);
 
   int idxcg_count = 0;
@@ -109,7 +108,7 @@ void SNA::build_indexlist()
   // index list for uarray
   // need to include both halves
 
-  MemKK::realloc_kokkos(idxu_block,"SNA::idxu_block",jdim);
+  realloc_kokkos(idxu_block,"SNA::idxu_block",jdim);
   auto h_idxu_block = Kokkos::create_mirror_view(idxu_block);
 
   int idxu_count = 0;
@@ -124,7 +123,7 @@ void SNA::build_indexlist()
   Kokkos::deep_copy(idxu_block,h_idxu_block);
 
   // index list for half uarray
-  MemKK::realloc_kokkos(idxu_half_block,"SNA::idxu_half_block",jdim);
+  realloc_kokkos(idxu_half_block,"SNA::idxu_half_block",jdim);
   auto h_idxu_half_block = Kokkos::create_mirror_view(idxu_half_block);
 
   int idxu_half_count = 0;
@@ -138,7 +137,7 @@ void SNA::build_indexlist()
   Kokkos::deep_copy(idxu_half_block, h_idxu_half_block);
 
   // mapping between full and half indexing, encoding flipping
-  MemKK::realloc_kokkos(idxu_full_half,"SNA::idxu_full_half",idxu_max);
+  realloc_kokkos(idxu_full_half,"SNA::idxu_full_half",idxu_max);
   auto h_idxu_full_half = Kokkos::create_mirror_view(idxu_full_half);
 
   idxu_count = 0;
@@ -165,7 +164,7 @@ void SNA::build_indexlist()
   // index list for "cache" uarray
   // this is the GPU scratch memory requirements
   // applied the CPU structures
-  MemKK::realloc_kokkos(idxu_cache_block,"SNA::idxu_cache_block",jdim);
+  realloc_kokkos(idxu_cache_block,"SNA::idxu_cache_block",jdim);
   auto h_idxu_cache_block = Kokkos::create_mirror_view(idxu_cache_block);
 
   int idxu_cache_count = 0;
@@ -187,7 +186,7 @@ void SNA::build_indexlist()
         if (j >= j1) idxb_count++;
 
   idxb_max = idxb_count;
-  MemKK::realloc_kokkos(idxb,"SNA::idxb",idxb_max);
+  realloc_kokkos(idxb,"SNA::idxb",idxb_max);
   auto h_idxb = Kokkos::create_mirror_view(idxb);
 
   idxb_count = 0;
@@ -204,7 +203,7 @@ void SNA::build_indexlist()
 
   // reverse index list for beta and b
 
-  MemKK::realloc_kokkos(idxb_block,"SNA::idxb_block",jdim,jdim,jdim);
+  realloc_kokkos(idxb_block,"SNA::idxb_block",jdim,jdim,jdim);
   auto h_idxb_block = Kokkos::create_mirror_view(idxb_block);
 
   idxb_count = 0;
@@ -230,10 +229,10 @@ void SNA::build_indexlist()
             idxz_count++;
 
   idxz_max = idxz_count;
-  MemKK::realloc_kokkos(idxz,"SNA::idxz",idxz_max);
+  realloc_kokkos(idxz,"SNA::idxz",idxz_max);
   auto h_idxz = Kokkos::create_mirror_view(idxz);
 
-  MemKK::realloc_kokkos(idxz_block,"SNA::idxz_block", jdim,jdim,jdim);
+  realloc_kokkos(idxz_block,"SNA::idxz_block", jdim,jdim,jdim);
   auto h_idxz_block = Kokkos::create_mirror_view(idxz_block);
 
   idxz_count = 0;
@@ -288,59 +287,59 @@ void SNA::grow_rij(int newnatom, int newnmax)
   natom = newnatom;
   nmax = newnmax;
 
-  MemKK::realloc_kokkos(rij,"sna:rij",natom,nmax,3);
-  MemKK::realloc_kokkos(wj,"sna:wj",natom,nmax);
-  MemKK::realloc_kokkos(rcutij,"sna:rcutij",natom,nmax);
-  MemKK::realloc_kokkos(sinnerij,"sna:sinnerij",natom,nmax);
-  MemKK::realloc_kokkos(dinnerij,"sna:dinnerij",natom,nmax);
-  MemKK::realloc_kokkos(inside,"sna:inside",natom,nmax);
-  MemKK::realloc_kokkos(element,"sna:element",natom,nmax);
-  MemKK::realloc_kokkos(dedr,"sna:dedr",natom,nmax,3);
+  realloc_kokkos(rij,"sna:rij",natom,nmax,3);
+  realloc_kokkos(wj,"sna:wj",natom,nmax);
+  realloc_kokkos(rcutij,"sna:rcutij",natom,nmax);
+  realloc_kokkos(sinnerij,"sna:sinnerij",natom,nmax);
+  realloc_kokkos(dinnerij,"sna:dinnerij",natom,nmax);
+  realloc_kokkos(inside,"sna:inside",natom,nmax);
+  realloc_kokkos(element,"sna:element",natom,nmax);
+  realloc_kokkos(dedr,"sna:dedr",natom,nmax,3);
 
 #ifdef LMP_KOKKOS_GPU
   if (!host_flag) {
     const int natom_div = (natom + vector_length - 1) / vector_length;
 
-    MemKK::realloc_kokkos(a_pack,"sna:a_pack",vector_length,nmax,natom_div);
-    MemKK::realloc_kokkos(b_pack,"sna:b_pack",vector_length,nmax,natom_div);
-    MemKK::realloc_kokkos(da_pack,"sna:da_pack",vector_length,nmax,natom_div,3);
-    MemKK::realloc_kokkos(db_pack,"sna:db_pack",vector_length,nmax,natom_div,3);
-    MemKK::realloc_kokkos(sfac_pack,"sna:sfac_pack",vector_length,nmax,natom_div,4);
-    MemKK::realloc_kokkos(ulisttot,"sna:ulisttot",1,1,1); // dummy allocation
-    MemKK::realloc_kokkos(ulisttot_full,"sna:ulisttot",1,1,1);
-    MemKK::realloc_kokkos(ulisttot_re_pack,"sna:ulisttot_re_pack",vector_length,idxu_half_max,nelements,natom_div);
-    MemKK::realloc_kokkos(ulisttot_im_pack,"sna:ulisttot_im_pack",vector_length,idxu_half_max,nelements,natom_div);
-    MemKK::realloc_kokkos(ulisttot_pack,"sna:ulisttot_pack",vector_length,idxu_max,nelements,natom_div);
-    MemKK::realloc_kokkos(ulist,"sna:ulist",1,1,1);
-    MemKK::realloc_kokkos(zlist,"sna:zlist",1,1,1);
-    MemKK::realloc_kokkos(zlist_pack,"sna:zlist_pack",vector_length,idxz_max,ndoubles,natom_div);
-    MemKK::realloc_kokkos(blist,"sna:blist",natom,ntriples,idxb_max);
-    MemKK::realloc_kokkos(blist_pack,"sna:blist_pack",vector_length,idxb_max,ntriples,natom_div);
-    MemKK::realloc_kokkos(ylist,"sna:ylist",1,1,1);
-    MemKK::realloc_kokkos(ylist_pack_re,"sna:ylist_pack_re",vector_length,idxu_half_max,nelements,natom_div);
-    MemKK::realloc_kokkos(ylist_pack_im,"sna:ylist_pack_im",vector_length,idxu_half_max,nelements,natom_div);
-    MemKK::realloc_kokkos(dulist,"sna:dulist",1,1,1);
+    realloc_kokkos(a_pack,"sna:a_pack",vector_length,nmax,natom_div);
+    realloc_kokkos(b_pack,"sna:b_pack",vector_length,nmax,natom_div);
+    realloc_kokkos(da_pack,"sna:da_pack",vector_length,nmax,natom_div,3);
+    realloc_kokkos(db_pack,"sna:db_pack",vector_length,nmax,natom_div,3);
+    realloc_kokkos(sfac_pack,"sna:sfac_pack",vector_length,nmax,natom_div,4);
+    realloc_kokkos(ulisttot,"sna:ulisttot",1,1,1); // dummy allocation
+    realloc_kokkos(ulisttot_full,"sna:ulisttot",1,1,1);
+    realloc_kokkos(ulisttot_re_pack,"sna:ulisttot_re_pack",vector_length,idxu_half_max,nelements,natom_div);
+    realloc_kokkos(ulisttot_im_pack,"sna:ulisttot_im_pack",vector_length,idxu_half_max,nelements,natom_div);
+    realloc_kokkos(ulisttot_pack,"sna:ulisttot_pack",vector_length,idxu_max,nelements,natom_div);
+    realloc_kokkos(ulist,"sna:ulist",1,1,1);
+    realloc_kokkos(zlist,"sna:zlist",1,1,1);
+    realloc_kokkos(zlist_pack,"sna:zlist_pack",vector_length,idxz_max,ndoubles,natom_div);
+    realloc_kokkos(blist,"sna:blist",natom,ntriples,idxb_max);
+    realloc_kokkos(blist_pack,"sna:blist_pack",vector_length,idxb_max,ntriples,natom_div);
+    realloc_kokkos(ylist,"sna:ylist",1,1,1);
+    realloc_kokkos(ylist_pack_re,"sna:ylist_pack_re",vector_length,idxu_half_max,nelements,natom_div);
+    realloc_kokkos(ylist_pack_im,"sna:ylist_pack_im",vector_length,idxu_half_max,nelements,natom_div);
+    realloc_kokkos(dulist,"sna:dulist",1,1,1);
   } else {
 #endif
-    MemKK::realloc_kokkos(a_pack,"sna:a_pack",1,1,1);
-    MemKK::realloc_kokkos(b_pack,"sna:b_pack",1,1,1);
-    MemKK::realloc_kokkos(da_pack,"sna:da_pack",1,1,1,1);
-    MemKK::realloc_kokkos(db_pack,"sna:db_pack",1,1,1,1);
-    MemKK::realloc_kokkos(sfac_pack,"sna:sfac_pack",1,1,1,1);
-    MemKK::realloc_kokkos(ulisttot,"sna:ulisttot",idxu_half_max,nelements,natom);
-    MemKK::realloc_kokkos(ulisttot_full,"sna:ulisttot_full",idxu_max,nelements,natom);
-    MemKK::realloc_kokkos(ulisttot_re_pack,"sna:ulisttot_re",1,1,1,1);
-    MemKK::realloc_kokkos(ulisttot_im_pack,"sna:ulisttot_im",1,1,1,1);
-    MemKK::realloc_kokkos(ulisttot_pack,"sna:ulisttot_pack",1,1,1,1);
-    MemKK::realloc_kokkos(ulist,"sna:ulist",idxu_cache_max,natom,nmax);
-    MemKK::realloc_kokkos(zlist,"sna:zlist",idxz_max,ndoubles,natom);
-    MemKK::realloc_kokkos(zlist_pack,"sna:zlist_pack",1,1,1,1);
-    MemKK::realloc_kokkos(blist,"sna:blist",natom,ntriples,idxb_max);
-    MemKK::realloc_kokkos(blist_pack,"sna:blist_pack",1,1,1,1);
-    MemKK::realloc_kokkos(ylist,"sna:ylist",idxu_half_max,nelements,natom);
-    MemKK::realloc_kokkos(ylist_pack_re,"sna:ylist_pack_re",1,1,1,1);
-    MemKK::realloc_kokkos(ylist_pack_im,"sna:ylist_pack_im",1,1,1,1);
-    MemKK::realloc_kokkos(dulist,"sna:dulist",idxu_cache_max,natom,nmax);
+    realloc_kokkos(a_pack,"sna:a_pack",1,1,1);
+    realloc_kokkos(b_pack,"sna:b_pack",1,1,1);
+    realloc_kokkos(da_pack,"sna:da_pack",1,1,1,1);
+    realloc_kokkos(db_pack,"sna:db_pack",1,1,1,1);
+    realloc_kokkos(sfac_pack,"sna:sfac_pack",1,1,1,1);
+    realloc_kokkos(ulisttot,"sna:ulisttot",idxu_half_max,nelements,natom);
+    realloc_kokkos(ulisttot_full,"sna:ulisttot_full",idxu_max,nelements,natom);
+    realloc_kokkos(ulisttot_re_pack,"sna:ulisttot_re",1,1,1,1);
+    realloc_kokkos(ulisttot_im_pack,"sna:ulisttot_im",1,1,1,1);
+    realloc_kokkos(ulisttot_pack,"sna:ulisttot_pack",1,1,1,1);
+    realloc_kokkos(ulist,"sna:ulist",idxu_cache_max,natom,nmax);
+    realloc_kokkos(zlist,"sna:zlist",idxz_max,ndoubles,natom);
+    realloc_kokkos(zlist_pack,"sna:zlist_pack",1,1,1,1);
+    realloc_kokkos(blist,"sna:blist",natom,ntriples,idxb_max);
+    realloc_kokkos(blist_pack,"sna:blist_pack",1,1,1,1);
+    realloc_kokkos(ylist,"sna:ylist",idxu_half_max,nelements,natom);
+    realloc_kokkos(ylist_pack_re,"sna:ylist_pack_re",1,1,1,1);
+    realloc_kokkos(ylist_pack_im,"sna:ylist_pack_im",1,1,1,1);
+    realloc_kokkos(dulist,"sna:dulist",idxu_cache_max,natom,nmax);
 
 #ifdef LMP_KOKKOS_GPU
   }

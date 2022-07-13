@@ -114,6 +114,24 @@ typedef Kokkos::View<const T_V_FLOAT*>    t_mass_const; // Mass
 
 typedef Kokkos::DefaultExecutionSpace::memory_space t_neigh_mem_space;
 
+namespace Kokkos {
+  static auto NoInit = [](std::string const& label) {
+    return Kokkos::view_alloc(Kokkos::WithoutInitializing, label);
+  };
+}
+
+/* ----------------------------------------------------------------------
+   reallocate Kokkos views without initialization
+   deallocate first to reduce memory use
+------------------------------------------------------------------------- */
+
+template <typename TYPE, typename... Indices>
+static void realloc_kokkos(TYPE &data, const char *name, Indices... ns)
+{
+  data = TYPE();
+  data = TYPE(Kokkos::NoInit(std::string(name)), ns...);
+}
+
 template<class Scalar>
 struct t_scalar3 {
   Scalar x,y,z;
