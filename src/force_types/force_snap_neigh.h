@@ -142,10 +142,10 @@ struct TagComputeDeidrjCPU{};
   void operator() (TagPreUi,const int iatom_mod, const int j, const int iatom_div) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeUiSmall,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiSmall>::member_type& team) const;
+  void operator() (TagComputeUiSmall,const typename Kokkos::TeamPolicyTagComputeUiSmall>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeUiLarge,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiLarge>::member_type& team) const;
+  void operator() (TagComputeUiLarge,const typename Kokkos::TeamPolicyTagComputeUiLarge>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagTransformUi,const int iatom_mod, const int j, const int iatom_div) const;
@@ -170,21 +170,21 @@ struct TagComputeDeidrjCPU{};
 
   template<int dir>
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeFusedDeidrjSmall<dir>,const typename Kokkos::TeamPolicy<DeviceType, TagComputeFusedDeidrjSmall<dir> >::member_type& team) const;
+  void operator() (TagComputeFusedDeidrjSmall<dir>,const typename Kokkos::TeamPolicyTagComputeFusedDeidrjSmall<dir> >::member_type& team) const;
 
   template<int dir>
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeFusedDeidrjLarge<dir>,const typename Kokkos::TeamPolicy<DeviceType, TagComputeFusedDeidrjLarge<dir> >::member_type& team) const;
+  void operator() (TagComputeFusedDeidrjLarge<dir>,const typename Kokkos::TeamPolicyTagComputeFusedDeidrjLarge<dir> >::member_type& team) const;
 
   // CPU backend only
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeNeighCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeNeighCPU>::member_type& team) const;
+  void operator() (TagComputeNeighCPU,const typename Kokkos::TeamPolicyTagComputeNeighCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPreUiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagPreUiCPU>::member_type& team) const;
+  void operator() (TagPreUiCPU,const typename Kokkos::TeamPolicyTagPreUiCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeUiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeUiCPU>::member_type& team) const;
+  void operator() (TagComputeUiCPU,const typename Kokkos::TeamPolicyTagComputeUiCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagTransformUiCPU, const int j, const int iatom) const;
@@ -193,16 +193,16 @@ struct TagComputeDeidrjCPU{};
   void operator() (TagComputeZiCPU,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeBiCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeBiCPU>::member_type& team) const;
+  void operator() (TagComputeBiCPU,const typename Kokkos::TeamPolicyTagComputeBiCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator() (TagComputeYiCPU,const int& ii) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeDuidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeDuidrjCPU>::member_type& team) const;
+  void operator() (TagComputeDuidrjCPU,const typename Kokkos::TeamPolicyTagComputeDuidrjCPU>::member_type& team) const;
 
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagComputeDeidrjCPU,const typename Kokkos::TeamPolicy<DeviceType, TagComputeDeidrjCPU>::member_type& team) const;
+  void operator() (TagComputeDeidrjCPU,const typename Kokkos::TeamPolicyTagComputeDeidrjCPU>::member_type& team) const;
 */
 
 protected:
@@ -218,9 +218,9 @@ protected:
   t_dbvec dbvec;
   SNA sna;
 
-  int nmax;
+  int nmax,max_neighs;
    
-  int chunk_size,chunk_offset;
+  int chunk_size,chunk_offset,chunksize;
   int host_flag;
 
   // How many interactions can be run concurrently
@@ -280,7 +280,8 @@ protected:
   Kokkos::View<T_F_FLOAT*> wjelem;               // elements weights
   Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> coeffelem;           // element bispectrum coefficients
   Kokkos::View<T_INT*> map;                     // mapping from atom types to elements
-  int twojmax, diagonalstyle, switchflag, bzeroflag, quadraticflag;
+  int twojmax, switchflag, bzeroflag, bnormflag, quadraticflag;
+  int chemflag, wselfallflag, switchinnerflag, diagonalstyle;
   double rcutfac, rfac0, rmin0, wj1, wj2;
   int rcutfacflag, twojmaxflag; // flags for required parameters
   typedef Kokkos::View<T_F_FLOAT**> t_fparams;
@@ -329,7 +330,7 @@ public:
   static constexpr int tile_size_compute_yi = 8;
   static constexpr int team_size_compute_fused_deidrj = sizeof(double) == 4 ? 4 : 2;
 #endif
-static constexpr int vector_length = SNAP_KOKKOS_DEVICE_VECLEN;
+static constexpr int vector_length = 32;
 
 // Custom MDRangePolicy, Rank3, to reduce verbosity of kernel launches
   // This hides the Kokkos::IndexType<int> and Kokkos::Rank<3...>
@@ -344,10 +345,13 @@ static constexpr int vector_length = SNAP_KOKKOS_DEVICE_VECLEN;
   template <int num_teams, class TagPairSNAP>
   using SnapAoSoATeamPolicy = typename Kokkos::TeamPolicy<Kokkos::LaunchBounds<vector_length * num_teams>, TagPairSNAP>;
 
-
-
-
-
+  Kokkos::View<T_F_FLOAT*> d_radelem;              // element radii
+  Kokkos::View<T_F_FLOAT*> d_wjelem;               // elements weights
+  Kokkos::View<T_F_FLOAT**, Kokkos::LayoutRight> d_coeffelem;           // element bispectrum coefficients
+  Kokkos::View<T_F_FLOAT*> d_sinnerelem;           // element inner cutoff midpoint
+  Kokkos::View<T_F_FLOAT*> d_dinnerelem;           // element inner cutoff half-width
+  Kokkos::View<T_INT*> d_map;                    // mapping from atom types to elements
+  Kokkos::View<T_INT*> d_ninside;                // ninside for all atoms in list
 };
 
 
