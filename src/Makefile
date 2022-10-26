@@ -14,10 +14,12 @@ EXAMINIMD_PATH = $(subst Makefile,,$(MAKEFILE_PATH))/..
 default: build
 	echo "Start Build"
 
+MY_MPI_EXE = $(shell which mpicxx)
+MY_MPI_PATH = $(dir ${MY_MPI_EXE})
 
 EXE = ExaMiniMD
-CXXFLAGS = -O3 -g
-LINKFLAGS = -O3 -g
+CXXFLAGS = -O3 -g -I${MY_MPI_PATH}../include
+LINKFLAGS = -O3 -g -L${MY_MPI_PATH}../lib -lmpi_ibm -lopen-pal -lopen-rte -lhwloc_ompi -levent_core -levent_pthreads -levent
 
 ifeq ($(MPI), 1)
   CXX = mpicxx
