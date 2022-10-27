@@ -1886,19 +1886,22 @@ void SNA::compute_duarray_cpu(const typename Kokkos::TeamPolicy<>::member_type& 
 inline
 double SNA::factorial(int n)
 {
-  //if (n < 0 || n > nmaxfactorial) {
-  //  char str[128];
-  //  sprintf(str, "Invalid argument to factorial %d", n);
-  //  error->all(FLERR, str);
-  //}
+  double result = 1.0;
+  for(int i=1; i<=n; i++)
+    result *= 1.0*i;
+  return result;  
 
-  return nfac_table[n];
 }
 
 /* ----------------------------------------------------------------------
    factorial n table, size SNA::nmaxfactorial+1
 ------------------------------------------------------------------------- */
 
+
+// Using nfac_table gives linking errors
+
+
+/*
 const double SNA::nfac_table[] = {
   1,
   1,
@@ -2069,6 +2072,7 @@ const double SNA::nfac_table[] = {
   9.00369170577843e+297,
   1.503616514865e+300, // nmaxfactorial = 167
 };
+*/
 
 /* ----------------------------------------------------------------------
    the function delta given by VMK Eq. 8.2(1)

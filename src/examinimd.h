@@ -36,6 +36,9 @@
 //  Questions? Contact Christian R. Trott (crtrott@sandia.gov)
 //************************************************************************
 
+#ifndef EXAMINI_H
+#define EXAMINIMD_H
+
 #include <types.h>
 
 #include<system.h>
@@ -69,4 +72,4 @@ class ExaMiniMD {
 
     void shutdown();
 };
-
+#endif //EXAMINIMD_H

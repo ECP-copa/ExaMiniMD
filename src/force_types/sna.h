@@ -313,7 +313,7 @@ class SNA {
   t_sna_2d rootpqarray;
 
   static const int nmaxfactorial = 167;
-  static const double nfac_table[];
+  //static const double nfac_table[];
   inline
   double factorial(int);
 
