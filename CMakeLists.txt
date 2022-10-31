@@ -3,6 +3,14 @@ cmake_minimum_required(VERSION 3.10)
 project(ExaMiniMD LANGUAGES CXX)
 
 find_package(Kokkos 3.0 REQUIRED)
+
+if ((Kokkos_DIR) AND (NOT Kokkos_ROOT))
+  message(STATUS "STATUS using lib64/cmake/Kokkos/KokkosConfig.cmake file (in Kokkos installation point) and Kokkos_DIR set to: ${Kokkos_DIR}")
+else()
+  message(STATUS "STATUS using Kokkos installation point with Kokkos_ROOT: ${Kokkos_ROOT}")
+  message(STATUS "STATUS Kokkos_DIR: ${Kokkos_DIR} automatically set when using Kokkos_ROOT")
+endif()
+
 option(USE_MPI "Build with MPI" ON)
 
 if (USE_MPI)
