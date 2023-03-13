@@ -51,7 +51,7 @@ if (USE_CUDA)
 endif()
 
 if (USE_MPI)
-  target_compile_definitions(ExaMiniMD PRIVATE EXAMIND_ENABLE_MPI)
+  target_compile_definitions(ExaMiniMD PRIVATE EXAMINIMD_ENABLE_MPI)
 endif()
 
 target_include_directories(ExaMiniMD PRIVATE ${Kokkos_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${SUBDIRECTORIES})
