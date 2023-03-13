@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(ExaMiniMD LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 find_package(Kokkos 3.0 REQUIRED)
 option(USE_MPI "Build with MPI" ON)
 
