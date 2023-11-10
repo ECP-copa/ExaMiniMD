@@ -61,60 +61,174 @@
 #include <Kokkos_Core.hpp>
 #include <types.h>
 
-struct SNA_LOOPINDICES {
-  int j1, j2, j;
+#ifdef __SYCL_DEVICE_ONLY__
+#include <CL/sycl.hpp>
+#endif
+
+struct WignerWrapper {
+  using complex = SNAComplex<double>;
+  static constexpr int vector_length = 32;
+
+  const int offset; // my offset into the vector (0, ..., vector_length - 1)
+  double* buffer; // buffer of real numbers
+
+  KOKKOS_INLINE_FUNCTION
+  WignerWrapper(complex* buffer_, const int offset_)
+   : offset(offset_), buffer(reinterpret_cast<double*>(buffer_))
+  { ; }
+
+  KOKKOS_INLINE_FUNCTION
+  complex get(const int& ma) const {
+    return complex(buffer[offset + 2 * vector_length * ma], buffer[offset + vector_length + 2 * vector_length * ma]);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void set(const int& ma, const complex& store) const {
+    buffer[offset + 2 * vector_length * ma] = store.re;
+    buffer[offset + vector_length + 2 * vector_length * ma] = store.im;
+  }
+};
+
+struct alignas(8) FullHalfMapper {
+  int idxu_half;
+  int flip_sign; // 0 -> isn't flipped, 1 -> conj, -1 -> -conj
 };
 
 class SNA {
 
-public:
+ public:
+  using complex = SNAComplex<double>;
+  static constexpr int vector_length = 32;
+
   typedef Kokkos::View<int*> t_sna_1i;
   typedef Kokkos::View<double*> t_sna_1d;
-  typedef Kokkos::View<double**, Kokkos::LayoutRight> t_sna_2d;
-  typedef Kokkos::View<double***, Kokkos::LayoutRight> t_sna_3d;
-  typedef Kokkos::View<double***, Kokkos::LayoutRight,Kokkos::MemoryTraits<Kokkos::Atomic> > t_sna_3d_atomic;
-  typedef Kokkos::View<double***[3], Kokkos::LayoutRight> t_sna_4d;
-  typedef Kokkos::View<double**[3], Kokkos::LayoutRight> t_sna_3d3;
-  typedef Kokkos::View<double*****, Kokkos::LayoutRight> t_sna_5d;
+  typedef Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Atomic>> t_sna_1d_atomic;
+  typedef Kokkos::View<int**> t_sna_2i;
+  typedef Kokkos::View<double**> t_sna_2d;
+  typedef Kokkos::View<double**, Kokkos::LayoutLeft> t_sna_2d_ll;
+  typedef Kokkos::View<double***> t_sna_3d;
+  typedef Kokkos::View<double***, Kokkos::LayoutLeft> t_sna_3d_ll;
+  typedef Kokkos::View<double***[3]> t_sna_4d;
+  typedef Kokkos::View<double****, Kokkos::LayoutLeft> t_sna_4d_ll;
+  typedef Kokkos::View<double**[3]> t_sna_3d3;
+  typedef Kokkos::View<double*****> t_sna_5d;
+
+  typedef Kokkos::View<complex*> t_sna_1c;
+  typedef Kokkos::View<complex*, Kokkos::MemoryTraits<Kokkos::Atomic>> t_sna_1c_atomic;
+  typedef Kokkos::View<complex**> t_sna_2c;
+  typedef Kokkos::View<complex**, Kokkos::LayoutLeft> t_sna_2c_ll;
+  typedef Kokkos::View<complex**, Kokkos::LayoutRight> t_sna_2c_lr;
+  typedef Kokkos::View<complex***> t_sna_3c;
+  typedef Kokkos::View<complex***, Kokkos::LayoutLeft> t_sna_3c_ll;
+  typedef Kokkos::View<complex***[3]> t_sna_4c;
+  typedef Kokkos::View<complex***[3], Kokkos::LayoutLeft> t_sna_4c3_ll;
+  typedef Kokkos::View<complex****, Kokkos::LayoutLeft> t_sna_4c_ll;
+  typedef Kokkos::View<complex**[3]> t_sna_3c3;
+  typedef Kokkos::View<complex*****> t_sna_5c;
+
   inline
   SNA() {};
+
   KOKKOS_INLINE_FUNCTION
-  SNA(const SNA& sna, const Kokkos::TeamPolicy<>::member_type& team);
+  SNA(const SNA& sna, const typename Kokkos::TeamPolicy<>::member_type& team);
+
   inline
-  SNA(double, int, int, int, double, int, int);
+  SNA(double, int, double, int, int, int, int, int, int, int);
 
   KOKKOS_INLINE_FUNCTION
   ~SNA();
+
   inline
   void build_indexlist(); // SNA()
+
   inline
   void init();            //
-  inline
-  T_INT size_team_scratch_arrays();
-  inline
-  T_INT size_thread_scratch_arrays();
+
+  double memory_usage();
 
   int ncoeff;
+  int host_flag;
 
-  // functions for bispectrum coefficients
+  // functions for bispectrum coefficients, GPU only
+  KOKKOS_INLINE_FUNCTION
+  void compute_cayley_klein(const int&, const int&, const int&);
+  KOKKOS_INLINE_FUNCTION
+  void pre_ui(const int&, const int&, const int&, const int&); // ForceSNAP
+
+  // version of the code with parallelism over j_bend
+  KOKKOS_INLINE_FUNCTION
+  void compute_ui_small(const typename Kokkos::TeamPolicy<>::member_type& team, const int, const int, const int, const int); // ForceSNAP
+  // version of the code without parallelism over j_bend
+  KOKKOS_INLINE_FUNCTION
+  void compute_ui_large(const typename Kokkos::TeamPolicy<>::member_type& team, const int, const int, const int); // ForceSNAP
 
   KOKKOS_INLINE_FUNCTION
-  void compute_ui(const Kokkos::TeamPolicy<>::member_type& team, int); // ForceSNAP
+  void compute_zi(const int&, const int&, const int&);    // ForceSNAP
   KOKKOS_INLINE_FUNCTION
-  void compute_zi(const Kokkos::TeamPolicy<>::member_type& team);    // ForceSNAP
+  void compute_yi(int,int,int,
+   const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_yi_with_zlist(int,int,int,
+   const Kokkos::View<double***, Kokkos::LayoutLeft> &beta_pack); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_bi(const int&, const int&, const int&);    // ForceSNAP
 
-  // functions for derivatives
+  // functions for derivatives, GPU only
+  // version of the code with parallelism over j_bend
+  template<int dir>
+  KOKKOS_INLINE_FUNCTION
+  void compute_fused_deidrj_small(const typename Kokkos::TeamPolicy<>::member_type& team, const int, const int, const int, const int); //ForceSNAP
+  // version of the code without parallelism over j_bend
+  template<int dir>
+  KOKKOS_INLINE_FUNCTION
+  void compute_fused_deidrj_large(const typename Kokkos::TeamPolicy<>::member_type& team, const int, const int, const int); //ForceSNAP
+
+  // core "evaluation" functions that get plugged into "compute" functions
+  // plugged into compute_ui_small, compute_ui_large
+  KOKKOS_FORCEINLINE_FUNCTION
+  void evaluate_ui_jbend(const WignerWrapper&, const complex&, const complex&, const double&, const int&,
+                        const int&, const int&, const int&);
+  // plugged into compute_zi, compute_yi
+  KOKKOS_FORCEINLINE_FUNCTION
+  complex evaluate_zi(const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&,
+                        const int&, const int&, const int&, const int&, const double*);
+  // plugged into compute_yi, compute_yi_with_zlist
+  KOKKOS_FORCEINLINE_FUNCTION
+  double evaluate_beta_scaled(const int&, const int&, const int&, const int&, const int&, const int&, const int&, const int&,
+                        const Kokkos::View<double***, Kokkos::LayoutLeft> &);
+  // plugged into compute_fused_deidrj_small, compute_fused_deidrj_large
+  KOKKOS_FORCEINLINE_FUNCTION
+  double evaluate_duidrj_jbend(const WignerWrapper&, const complex&, const complex&, const double&,
+                        const WignerWrapper&, const complex&, const complex&, const double&,
+                        const int&, const int&, const int&, const int&);
+
+  // functions for bispectrum coefficients, CPU only
+  KOKKOS_INLINE_FUNCTION
+  void pre_ui_cpu(const typename Kokkos::TeamPolicy<>::member_type& team,const int&,const int&); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_ui_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int, int); // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_zi_cpu(const int&);    // ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_yi_cpu(int,
+   const Kokkos::View<double**> &beta); // ForceSNAP
+    KOKKOS_INLINE_FUNCTION
+  void compute_bi_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int);    // ForceSNAP
+
+  // functions for derivatives, CPU only
+  KOKKOS_INLINE_FUNCTION
+  void compute_duidrj_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int, int); //ForceSNAP
+  KOKKOS_INLINE_FUNCTION
+  void compute_deidrj_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int, int); // ForceSNAP
 
   KOKKOS_INLINE_FUNCTION
-  void compute_duidrj(const Kokkos::TeamPolicy<>::member_type& team, double*, double, double); //ForceSNAP
+  double compute_sfac(double, double, double, double); // add_uarraytot, compute_duarray
+
   KOKKOS_INLINE_FUNCTION
-  void compute_dbidrj(const Kokkos::TeamPolicy<>::member_type& team); //ForceSNAP
+  double compute_dsfac(double, double, double, double); // compute_duarray
+
   KOKKOS_INLINE_FUNCTION
-  void copy_dbi2dbvec(const Kokkos::TeamPolicy<>::member_type& team); //ForceSNAP
-  KOKKOS_INLINE_FUNCTION
-  double compute_sfac(double, double); // add_uarraytot, compute_duarray
-  KOKKOS_INLINE_FUNCTION
-  double compute_dsfac(double, double); // compute_duarray
+  void compute_s_dsfac(const double, const double, const double, const double, double&, double&); // compute_cayley_klein
 
 #ifdef TIMING_INFO
   double* timers;
@@ -125,99 +239,137 @@ public:
 
   //per sna class instance for OMP use
 
-
   // Per InFlight Particle
-  t_sna_2d rij;
-  t_sna_1i inside;
-  t_sna_1d wj;
-  t_sna_1d rcutij;
-  int nmax;
+  t_sna_3d rij;
+  t_sna_2i inside;
+  t_sna_2d wj;
+  t_sna_2d rcutij;
+  t_sna_2d sinnerij;
+  t_sna_2d dinnerij;
+  t_sna_2i element;
+  t_sna_3d dedr;
+  int natom, nmax;
 
-  void grow_rij(int);
+  void grow_rij(int, int);
 
   int twojmax, diagonalstyle;
-  // Per InFlight Particle
-  t_sna_3d uarraytot_r, uarraytot_i;
-  t_sna_3d_atomic uarraytot_r_a, uarraytot_i_a;
-  t_sna_5d zarray_r, zarray_i;
 
-  // Per InFlight Interaction
-  t_sna_3d uarray_r, uarray_i;
+  t_sna_3d blist;
+  t_sna_3c_ll ulisttot;
+  t_sna_3c_ll ulisttot_full; // un-folded ulisttot, cpu only
+  t_sna_3c_ll zlist;
+
+  t_sna_3c_ll ulist;
+  t_sna_3c_ll ylist;
 
   // derivatives of data
-  Kokkos::View<double*[3], Kokkos::LayoutRight> dbvec;
-  t_sna_4d duarray_r, duarray_i;
-  t_sna_4d dbarray;
+  t_sna_4c3_ll dulist;
 
-private:
+  // Modified structures for GPU backend
+  t_sna_3c_ll a_pack; // Cayley-Klein `a`
+  t_sna_3c_ll b_pack; // `b`
+  t_sna_4c_ll da_pack; // `da`
+  t_sna_4c_ll db_pack; // `db`
+  t_sna_4d_ll sfac_pack; // sfac, dsfac_{x,y,z}
+
+  t_sna_4d_ll ulisttot_re_pack; // split real,
+  t_sna_4d_ll ulisttot_im_pack; // imag, AoSoA, flattened
+  t_sna_4c_ll ulisttot_pack; // AoSoA layout
+  t_sna_4c_ll zlist_pack; // AoSoA layout
+  t_sna_4d_ll blist_pack;
+  t_sna_4d_ll ylist_pack_re; // split real,
+  t_sna_4d_ll ylist_pack_im; // imag AoSoA layout
+
+  int idxcg_max, idxu_max, idxu_half_max, idxu_cache_max, idxz_max, idxb_max;
+
+  // Chem snap counts
+  int nelements;
+  int ndoubles;
+  int ntriples;
+
+ private:
   double rmin0, rfac0;
 
   //use indexlist instead of loops, constructor generates these
-  // Same accross all SNA
-  Kokkos::View<SNA_LOOPINDICES*> idxj,idxj_full;
-  int idxj_max,idxj_full_max;
+  // Same across all SNA
+  Kokkos::View<int*[10]> idxz;
+  Kokkos::View<int*[3]> idxb;
+  Kokkos::View<int***> idxcg_block;
+
+ public:
+  Kokkos::View<int*> idxu_block;
+  Kokkos::View<int*> idxu_half_block;
+  Kokkos::View<int*> idxu_cache_block;
+  Kokkos::View<FullHalfMapper*> idxu_full_half;
+
+ private:
+  Kokkos::View<int***> idxz_block;
+  Kokkos::View<int***> idxb_block;
+
   // data for bispectrum coefficients
 
-  // Same accross all SNA
-  t_sna_5d cgarray;
+  // Same across all SNA
+  t_sna_1d cglist;
   t_sna_2d rootpqarray;
 
-
   static const int nmaxfactorial = 167;
-  KOKKOS_INLINE_FUNCTION
+  //static const double nfac_table[];
+  inline
   double factorial(int);
 
   KOKKOS_INLINE_FUNCTION
-  void create_team_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  void create_team_scratch_arrays(const typename Kokkos::TeamPolicy<>::member_type& team); // SNA()
   KOKKOS_INLINE_FUNCTION
-  void create_thread_scratch_arrays(const Kokkos::TeamPolicy<>::member_type& team); // SNA()
+  void create_thread_scratch_arrays(const typename Kokkos::TeamPolicy<>::member_type& team); // SNA()
+
   inline
   void init_clebsch_gordan(); // init()
+
   inline
   void init_rootpqarray();    // init()
-  KOKKOS_INLINE_FUNCTION
-  void zero_uarraytot(const Kokkos::TeamPolicy<>::member_type& team);      // compute_ui
-  KOKKOS_INLINE_FUNCTION
-  void addself_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double); // compute_ui
-  KOKKOS_INLINE_FUNCTION
-  void add_uarraytot(const Kokkos::TeamPolicy<>::member_type& team, double, double, double); // compute_ui
 
   KOKKOS_INLINE_FUNCTION
-  void compute_uarray(const Kokkos::TeamPolicy<>::member_type& team,
-                      double, double, double,
-                      double, double); // compute_ui
+  void add_uarraytot(const typename Kokkos::TeamPolicy<>::member_type& team, int, int, const double&, const double&, const double&, const double&, const double&, int); // compute_ui
+
   KOKKOS_INLINE_FUNCTION
+  void compute_uarray_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int, int,
+                      const double&, const double&, const double&,
+                      const double&, const double&); // compute_ui_cpu
+
+
+  inline
   double deltacg(int, int, int);  // init_clebsch_gordan
+
   inline
   int compute_ncoeff();           // SNA()
   KOKKOS_INLINE_FUNCTION
-  void compute_duarray(const Kokkos::TeamPolicy<>::member_type& team,
-                       double, double, double, // compute_duidrj
-                       double, double, double, double, double);
-
-  // if number of atoms are small use per atom arrays
-  // for twojmax arrays, rij, inside, bvec
-  // this will increase the memory footprint considerably,
-  // but allows parallel filling and reuse of these arrays
-  int use_shared_arrays;
+  void compute_duarray_cpu(const typename Kokkos::TeamPolicy<>::member_type& team, int, int,
+                       const double&, const double&, const double&, // compute_duidrj_cpu
+                           const double&, const double&, const double&, const double&, const double&,
+                           const double&, const double&);
 
   // Sets the style for the switching function
   // 0 = none
   // 1 = cosine
   int switch_flag;
 
+  // Sets the style for the inner switching function
+  // 0 = none
+  // 1 = cosine
+  int switch_inner_flag;
+
+  // Chem snap flags
+  int chem_flag;
+  int bnorm_flag;
+
   // Self-weight
   double wself;
+  int wselfall_flag;
+
+  int bzero_flag; // 1 if bzero subtracted from barray
+  Kokkos::View<double*> bzero; // array of B values for isolated atoms
 };
 
 #include<sna_impl.hpp>
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Invalid argument to factorial %d
-
-N must be >= 0 and <= 167, otherwise the factorial result is too
-large.
-
-*/
