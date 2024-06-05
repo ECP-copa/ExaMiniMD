@@ -69,6 +69,7 @@ private:
   t_x_const_rnd x;
   t_f f;
   t_f_atomic f_a;
+  t_f_duplicated f_r;
   t_id id;
   t_type_const_rnd type;
   Binning::t_bincount bin_count;
