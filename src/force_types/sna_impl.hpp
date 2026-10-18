@@ -87,15 +87,13 @@ inline
 void SNA::build_indexlist()
 {
   if(diagonalstyle == 3) {
-    int idxj_count = 0;
-    int idxj_full_count = 0;
-
-    for(int j1 = 0; j1 <= twojmax; j1++)
-      for(int j2 = 0; j2 <= j1; j2++)
-        for(int j = abs(j1 - j2); j <= MIN(twojmax, j1 + j2); j += 2) {
-          if (j >= j1) idxj_count++;
-          idxj_full_count++;
-        }
+    int idxj_count;
+    if(twojmax % 2 == 0) {
+      idxj_count = (twojmax + 2) * (twojmax + 3) * (twojmax + 4) / 24;
+    } else {
+      idxj_count = (twojmax + 1) * (twojmax + 3) * (twojmax + 5) / 24;
+    }
+    int idxj_full_count = (twojmax + 2) * ((twojmax + 2) * (twojmax + 2) / 4) / 2;
 
     // indexList can be changed here
 
